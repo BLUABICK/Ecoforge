@@ -1,0 +1,23 @@
+[gd_scene load_steps=4 format=3 uid="uid://cwxa67vp5gcd4"]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/player-2d-1.jpg" id="1_qn3pq"]
+[ext_resource type="Script" path="res://scenes/player/player_controller.gd" id="2_controller"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_lqdjo"]
+radius = 20.0
+
+[node name="Player2d" type="CharacterBody2D" unique_id=585957362]
+motion_mode = 1
+script = ExtResource("2_controller")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1846866191]
+scale = Vector2(0.1, 0.1)
+texture = ExtResource("1_qn3pq")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=2042472387]
+shape = SubResource("CircleShape2D_lqdjo")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position_smoothing_enabled = true
+position_smoothing_speed = 3.0
+limit_smoothed = true
