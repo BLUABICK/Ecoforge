@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3]
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(96, 64)
+[node name="TestBuilding" type="StaticBody2D" groups=["buildings"]]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("1")
+[node name="Body" type="Polygon2D" parent="."]
+polygon = PackedVector2Array(-48, -32, 48, -32, 48, 32, -48, 32)
+color = Color(0.32, 0.42, 0.45, 1)
+[node name="Top" type="Polygon2D" parent="."]
+polygon = PackedVector2Array(-36, -23, 36, -23, 36, 23, -36, 23)
+color = Color(0.42, 0.56, 0.57, 1)
+[node name="Direction" type="Polygon2D" parent="."]
+polygon = PackedVector2Array(-8, -12, 0, -25, 8, -12)
+color = Color(0.8, 0.86, 0.71, 1)

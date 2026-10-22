@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=3 format=3]
+[ext_resource type="Script" path="res://data/definitions/item_definition.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/screwdriver.png" id="2_icon"]
+[resource]
+script = ExtResource("1")
+id = &"screwdriver"
+display_name = "Отвёртка"
+
+
+stack_limit = 1
+is_tool = true
+description = "Разбирает постройки за 3 секунды."
+
+icon = ExtResource("2_icon")
+

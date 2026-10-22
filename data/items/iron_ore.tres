@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="" load_steps=2 format=3]
+[ext_resource type="Script" path="res://data/definitions/item_definition.gd" id="1"]
+[resource]
+script = ExtResource("1")
+id = &"iron_ore"
+display_name = "Железная руда"
+description = "Железосодержащее сырьё."

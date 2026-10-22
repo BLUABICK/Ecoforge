@@ -1,0 +1,26 @@
+[gd_scene load_steps=3 format=3 ]
+
+[ext_resource type="PackedScene" path="res://scenes/player/player-2d.tscn" id="1_player"]
+[ext_resource type="Script" path="res://tests/playgrounds/movement_playground.gd" id="2_world"]
+
+[node name="Main" type="Node2D" unique_id=2141316249]
+script = ExtResource("2_world")
+
+[node name="Player2d" parent="." instance=ExtResource("1_player")]
+position = Vector2(448, 448)
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Controls" type="Label" parent="HUD"]
+offset_left = 20.0
+offset_top = 16.0
+offset_right = 640.0
+offset_bottom = 70.0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+text = "ECOFORGE — тест персонажа\nWASD / стрелки — ходить | Ctrl — бег | Shift — медленный шаг | 1–5 — слот | E — открыть контейнер"
+
+
+
+

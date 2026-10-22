@@ -1,23 +1,65 @@
-[gd_scene load_steps=4 format=3 uid="uid://cwxa67vp5gcd4"]
+[gd_scene format=3 uid="uid://cwxa67vp5gcd4"]
 
-[ext_resource type="Texture2D" path="res://assets/sprites/player-2d-1.jpg" id="1_qn3pq"]
 [ext_resource type="Script" path="res://scenes/player/player_controller.gd" id="2_controller"]
+[ext_resource type="Script" path="res://scenes/player/player_interaction.gd" id="3_interaction"]
+[ext_resource type="Script" path="res://scenes/player/player_vitals.gd" id="4_vitals"]
+[ext_resource type="Script" path="res://scenes/player/player_visuals.gd" id="5_visuals"]
+[ext_resource type="Texture2D" path="res://assets/sprites/body_without_hands.png" id="6_body"]
+[ext_resource type="Texture2D" path="res://assets/sprites/head.png" id="7_head"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_lqdjo"]
-radius = 20.0
+radius = 12.0
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_yf5fn"]
+radius = 6.0
+height = 42.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_interaction"]
+radius = 36.0
 
 [node name="Player2d" type="CharacterBody2D" unique_id=585957362]
+texture_filter = 1
 motion_mode = 1
 script = ExtResource("2_controller")
 
-[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1846866191]
-scale = Vector2(0.1, 0.1)
-texture = ExtResource("1_qn3pq")
+[node name="Visuals" type="Node2D" parent="." unique_id=1720548395]
+scale = Vector2(3, 3)
+script = ExtResource("5_visuals")
+
+[node name="BodyPivot" type="Node2D" parent="Visuals" unique_id=692985545]
+
+[node name="Body" type="Sprite2D" parent="Visuals/BodyPivot" unique_id=849674759]
+texture = ExtResource("6_body")
+
+[node name="HeadPivot" type="Node2D" parent="Visuals" unique_id=1146749477]
+
+[node name="Head" type="Sprite2D" parent="Visuals/HeadPivot" unique_id=671494304]
+texture = ExtResource("7_head")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=2042472387]
 shape = SubResource("CircleShape2D_lqdjo")
 
-[node name="Camera2D" type="Camera2D" parent="."]
-position_smoothing_enabled = true
-position_smoothing_speed = 3.0
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1596911697]
 limit_smoothed = true
+position_smoothing_enabled = true
+position_smoothing_speed = 7.0
+process_callback = 1
+
+[node name="Interaction" type="Node" parent="." unique_id=1131608748]
+script = ExtResource("3_interaction")
+
+[node name="Vitals" type="Node" parent="." unique_id=1368487449]
+script = ExtResource("4_vitals")
+
+[node name="CollisionShape2D2" type="CollisionShape2D" parent="." unique_id=602589107]
+rotation = 1.5707964
+shape = SubResource("CapsuleShape2D_yf5fn")
+
+[node name="InteractionArea" type="Area2D" parent="." unique_id=1329614390]
+collision_layer = 0
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractionArea" unique_id=1171777468]
+shape = SubResource("CircleShape2D_interaction")
+
+

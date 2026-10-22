@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/resources/resource_storage.gd" id="1"]
+
+[node name="SmallContainer" type="StaticBody2D" groups=["buildings"]]
+script = ExtResource("1")
