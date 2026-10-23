@@ -14,10 +14,11 @@ func _run() -> void:
 	var player = world.get_node("Player2d")
 	player.set_physics_process(false)
 	var hud = world.get_node("HUD/PlayerHUD")
-	var source = preload("res://tests/fixtures/test_building.tres")
+	var source = preload("res://data/buildings/cargo_container.tres")
 	controller.begin(source)
 	controller.update_preview(Vector2(900, 400))
 	_check(controller.confirm(), "Place demolition fixture")
+	controller.cancel()
 	await physics_frame
 	await physics_frame
 	var building = get_nodes_in_group("buildings")[0]
@@ -55,6 +56,7 @@ func _run() -> void:
 	controller.begin(source)
 	controller.update_preview(Vector2(900, 400))
 	_check(controller.confirm(), "Freed cells can be built on again")
+	controller.cancel()
 	await physics_frame
 	await physics_frame
 	building = get_nodes_in_group("buildings")[0]
@@ -74,4 +76,3 @@ func _check(condition: bool, description: String) -> void:
 	else:
 		failures += 1
 		push_error(description)
-

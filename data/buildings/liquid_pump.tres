@@ -1,0 +1,11 @@
+[gd_resource type="Resource" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/definitions/building_definition.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/liquid_pump.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"liquid_pump"
+display_name = "Жидкостная помпа"
+footprint = Vector2i(2, 2)
+scene = ExtResource("2")

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/definitions/building_definition.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/trade_terminal.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"trade_terminal"
+display_name = "Торговый терминал"
+footprint = Vector2i(2, 1)
+scene = ExtResource("2")

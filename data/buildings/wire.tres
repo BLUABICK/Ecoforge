@@ -1,0 +1,16 @@
+[gd_resource type="Resource" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/definitions/building_definition.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/wire.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"wire"
+display_name = "Провод"
+footprint = Vector2i(1, 1)
+scene = ExtResource("2")
+
+
+
+preview_size = Vector2(6.4, 32)
+free_placement = true

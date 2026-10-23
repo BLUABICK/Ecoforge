@@ -45,7 +45,7 @@ func _ready() -> void:
 	construction.z_index = 10
 	construction.bounds = Rect2(Vector2.ZERO, WORLD_SIZE)
 	add_child(construction)
-	var catalog: Array[Resource] = [preload("res://tests/fixtures/test_building.tres"), preload("res://data/buildings/small_container.tres")]
+	var catalog: Array[Resource] = [preload("res://data/buildings/small_container.tres"), preload("res://data/buildings/cargo_container.tres"), preload("res://data/buildings/terminal.tres"), preload("res://data/buildings/trade_terminal.tres"), preload("res://data/buildings/delivery_pad.tres"), preload("res://data/buildings/technoformer.tres"), preload("res://data/buildings/conveyor.tres"), preload("res://data/buildings/router.tres"), preload("res://data/buildings/junction.tres"), preload("res://data/buildings/pipe.tres"), preload("res://data/buildings/liquid_pump.tres"), preload("res://data/buildings/gas_pump.tres"), preload("res://data/buildings/wire.tres")]
 	player_hud.bind_construction(construction, catalog)
 	construction.feedback.connect(_on_feedback)
 
@@ -134,9 +134,3 @@ func _describe(inventory: RefCounted) -> String:
 
 func _on_feedback(message: String) -> void:
 	_status.text = message
-
-
-
-
-
-

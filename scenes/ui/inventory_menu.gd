@@ -192,14 +192,49 @@ func _style(button: Button, color: Color) -> void:
 func set_catalog(buildings: Array[Resource]) -> void:
 	_catalog = buildings
 	for index in _building_slots.size():
+		var slot := _building_slots[index]
 		var available := index < _catalog.size()
-		_building_slots[index].disabled = not available
-		_building_slots[index].text = _catalog[index].display_name if available else ""
-		_building_slots[index].icon = _catalog[index].icon if available else null
-		_building_slots[index].expand_icon = true
-		_building_slots[index].add_theme_constant_override("icon_max_width", 48)
-		_building_slots[index].texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		_building_slots[index].tooltip_text = _catalog[index].display_name if available else ""
+		slot.disabled = not available
+		slot.text = ""
+		slot.icon = null
+		slot.clip_contents = true
+		slot.tooltip_text = _catalog[index].display_name if available else ""
+		var content := slot.get_node_or_null("BuildingContent")
+		if content != null:
+			slot.remove_child(content)
+			content.queue_free()
+		if not available:
+			continue
+		var column := VBoxContainer.new()
+		column.name = "BuildingContent"
+		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		column.offset_left = 3
+		column.offset_right = -3
+		column.offset_top = 3
+		column.offset_bottom = -3
+		column.add_theme_constant_override("separation", 2)
+		slot.add_child(column)
+		var icon := TextureRect.new()
+		icon.texture = _catalog[index].icon
+		icon.custom_minimum_size = Vector2(0, 30)
+		icon.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.add_child(icon)
+		var caption := Label.new()
+		caption.text = _catalog[index].display_name
+		caption.add_theme_font_size_override("font_size", 10)
+		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		caption.max_lines_visible = 2
+		caption.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		caption.clip_text = true
+		caption.custom_minimum_size = Vector2(0, 28)
+		caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.add_child(caption)
 
 
 func _choose_building(index: int) -> void:
@@ -359,7 +394,3 @@ func show_quantity(side: int, index: int) -> void:
 	_quantity_slider.value = 1
 	_quantity_label.text = "1 из %d" % amount
 	_quantity_dialog.popup_centered()
-
-
-
-

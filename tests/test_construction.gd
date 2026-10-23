@@ -20,7 +20,7 @@ func _run() -> void:
 	var menu: Control = hud._inventory_menu
 	_key(KEY_Z)
 	_check(menu.visible and menu.active_tab == 2 and menu._tabs[2].text == "Строительство", "Z opens construction tab")
-	menu._building_slots[0].pressed.emit()
+	menu._building_slots[1].pressed.emit()
 	_check(controller.active and not menu.visible and not player.menu_open, "Choosing building starts placement")
 	_check(player.get_node("Interaction").input_blocked, "Placement blocks world interactions")
 	controller.set_process(false)
@@ -29,8 +29,8 @@ func _run() -> void:
 	_key(KEY_R)
 	_check(controller.turns == 1 and controller.dimensions() == Vector2i(2, 3), "R rotates footprint")
 	_mouse(MOUSE_BUTTON_LEFT, Vector2(900, 400), controller)
-	_check(not controller.active and get_nodes_in_group("buildings").size() == 1, "Left click places building")
-	_check(not player.get_node("Interaction").input_blocked, "Confirm restores world interaction")
+	_check(controller.active and get_nodes_in_group("buildings").size() == 1, "Left click places building and keeps placement active")
+	_check(player.get_node("Interaction").input_blocked, "Repeated placement keeps world interaction blocked")
 	if get_nodes_in_group("buildings").is_empty():
 		print("Viewport: ", root.size, " cursor test: ", controller.get_canvas_transform() * Vector2(900, 400))
 		world.queue_free()
@@ -38,7 +38,7 @@ func _run() -> void:
 		return
 	var building: Node2D = get_nodes_in_group("buildings")[0]
 	_check(is_equal_approx(building.rotation, PI / 2.0), "Placed building retains rotation")
-	var source := preload("res://tests/fixtures/test_building.tres")
+	var source := preload("res://data/buildings/cargo_container.tres")
 	controller.begin(source)
 	controller.update_preview(Vector2(900, 400))
 	_check(not controller.confirm() and get_nodes_in_group("buildings").size() == 1, "Cannot overlap existing building")
@@ -62,6 +62,7 @@ func _run() -> void:
 	await physics_frame
 	var container = controller._occupied[Vector2i(43, 21)]
 	_check(container.inventory.capacity == 25 and container.inventory.slot_limit == 25, "Built container has 25 capacity and slots")
+	controller.cancel()
 	var interaction = player.get_node("Interaction")
 	player.global_position = container.global_position + Vector2(0, -40)
 	await physics_frame
@@ -112,8 +113,3 @@ func _mouse(button: MouseButton, world_position: Vector2, controller: Node2D) ->
 	event.pressed = false
 	Input.parse_input_event(event)
 	Input.flush_buffered_events()
-
-
-
-
-
