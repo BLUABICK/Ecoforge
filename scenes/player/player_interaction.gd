@@ -25,6 +25,7 @@ func _init() -> void:
 	tools.capacity = 6
 	tools.add(&"sledgehammer", 1)
 	tools.add(&"screwdriver", 1)
+	tools.add(&"wire_cutters", 1)
 
 
 func _ready() -> void:

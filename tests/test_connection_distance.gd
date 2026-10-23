@@ -25,14 +25,14 @@ func _run() -> void:
 	controller.update_preview(Vector2(1401, 677))
 	check(controller._wire_route.size() == 3, "Preview bends to connect two offset wires")
 	var second = controller._free_buildings[1]
-	second.position.x += 6.4
+	second.position.x += 8.0
 	await physics_frame
 	controller.update_preview(Vector2(1401, 677))
-	check(controller._wire_route.is_empty(), "Connection longer than five small cells is rejected")
-	second.position.x -= 6.4
+	check(controller._wire_route.is_empty(), "Connection longer than four small cells is rejected")
+	second.position.x -= 8.0
 	await physics_frame
 	controller.update_preview(Vector2(1401, 677))
-	check(controller.can_place and controller.confirm(), "Connection exactly five small cells long can be placed")
+	check(controller.can_place and controller.confirm(), "Connection exactly four small cells long can be placed")
 	await physics_frame
 	var bridge = controller._free_buildings.back()
 	check(bridge.route.size() == 3 and bridge.get_child_count() == 3, "Placed bridge has line and collision on both segments")
@@ -42,5 +42,5 @@ func _run() -> void:
 	check(controller._wire_route.is_empty(), "Free placement disables bending")
 	world.queue_free()
 	await process_frame
-	print("Five-small-cell connection checks finished. Failures: ", failures)
+	print("Four-small-cell connection checks finished. Failures: ", failures)
 	quit(1 if failures else 0)

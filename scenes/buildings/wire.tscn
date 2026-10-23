@@ -3,16 +3,17 @@
 [ext_resource type="Script" path="res://scenes/buildings/wire.gd" id="WireScript"]
 
 [sub_resource type="RectangleShape2D" id="Shape"]
-size = Vector2(6.4, 32)
+size = Vector2(8, 32)
 
 [node name="Wire" type="StaticBody2D" groups=["buildings"]]
 script = ExtResource("WireScript")
+route_width = 8.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("Shape")
 
 [node name="Placeholder" type="Polygon2D" parent="."]
-polygon = PackedVector2Array(-3.2, -16, 3.2, -16, 3.2, 16, -3.2, 16)
+polygon = PackedVector2Array(-4, -16, 4, -16, 4, 16, -4, 16)
 color = Color(0.78, 0.48, 0.24, 1)
 
 [node name="Direction" type="Polygon2D" parent="."]

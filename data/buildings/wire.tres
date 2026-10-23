@@ -12,5 +12,5 @@ scene = ExtResource("2")
 
 
 
-preview_size = Vector2(6.4, 32)
+preview_size = Vector2(8, 32)
 free_placement = true

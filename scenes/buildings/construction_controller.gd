@@ -3,9 +3,17 @@ extends Node2D
 signal mode_changed(active: bool)
 signal feedback(message: String)
 signal building_placed(building: Node2D)
+signal wire_cut(length: float)
+var _last_cut_cursor := Vector2.ZERO
+var _cut_preview := PackedVector2Array()
 
 const CELL_SIZE: int = 32
 const MAX_CONNECTION_LENGTH: float = CELL_SIZE
+const WIRE_STEP: float = CELL_SIZE / 4.0
+const MAX_WIRE_CELLS: int = 4
+var _drawing_wire := false
+var _wire_start := Vector2.ZERO
+var _wire_start_connected := false
 var bounds := Rect2(Vector2.ZERO, Vector2(1920, 1280))
 var definition: Resource
 var active: bool = false
@@ -31,6 +39,7 @@ var _occupied: Dictionary[Vector2i, Node2D] = {}
 
 
 func begin(source: Resource) -> void:
+	_drawing_wire = false
 	definition = source
 	turns = 0
 	_requested_turns = 0
@@ -41,6 +50,7 @@ func begin(source: Resource) -> void:
 
 
 func cancel() -> void:
+	_drawing_wire = false
 	active = false
 	can_place = false
 	queue_redraw()
@@ -60,18 +70,24 @@ func update_preview(world_position: Vector2) -> void:
 	cell = Vector2i((world_position / CELL_SIZE).floor())
 	_cursor_position = world_position
 	placement_position = world_position
+	if _drawing_wire:
+		_update_drawn_wire(world_position)
+		can_place = _valid_location()
+		queue_redraw()
+		return
 	if definition != null and definition.length_axis_snap and not free_build_mode:
 		if turns % 2 == 1:
 			placement_position.x = (cell.x + 0.5) * CELL_SIZE
 		else:
 			placement_position.y = (cell.y + 0.5) * CELL_SIZE
 	if definition != null and definition.free_placement and not definition.length_axis_snap and not free_build_mode:
-		var step := float(CELL_SIZE) / 5.0
+		var divisions := 4 if definition.id == &"wire" else 5
+		var step := float(CELL_SIZE) / divisions
 		var cell_origin := Vector2(cell * CELL_SIZE)
 		var local_position := world_position - cell_origin
 		var subcell := Vector2i((local_position / step).floor())
-		subcell.x = clampi(subcell.x, 0, 4)
-		subcell.y = clampi(subcell.y, 0, 4)
+		subcell.x = clampi(subcell.x, 0, divisions - 1)
+		subcell.y = clampi(subcell.y, 0, divisions - 1)
 		placement_position = cell_origin + (Vector2(subcell) + Vector2(0.5, 0.5)) * step
 	if definition != null and definition.id in [&"wire", &"pipe"] and not free_build_mode and not Input.is_key_pressed(KEY_CTRL):
 		_snap_wire_end(world_position)
@@ -79,6 +95,8 @@ func update_preview(world_position: Vector2) -> void:
 		if _wire_route.is_empty():
 			_find_corner_bridge(world_position)
 	can_place = _valid_location()
+	if definition != null and definition.id == &"wire":
+		can_place = _wire_marker_is_clear()
 	_last_preview_turns = turns
 	queue_redraw()
 
@@ -86,6 +104,59 @@ func update_preview(world_position: Vector2) -> void:
 func _process(_delta: float) -> void:
 	if active:
 		update_preview(get_global_mouse_position())
+	elif selected_tool == 2:
+		_update_cut_preview(get_global_mouse_position())
+
+
+func _wire_marker_is_clear() -> bool:
+	var marker := _cursor_position if free_build_mode else (_cursor_position / WIRE_STEP).floor() * WIRE_STEP + Vector2.ONE * WIRE_STEP * 0.5
+	if not bounds.encloses(Rect2(marker - Vector2.ONE * WIRE_STEP * 0.5, Vector2.ONE * WIRE_STEP)):
+		return false
+	var shape := RectangleShape2D.new()
+	shape.size = Vector2.ONE * (WIRE_STEP - 0.2)
+	var query := PhysicsShapeQueryParameters2D.new()
+	query.shape = shape
+	query.transform = Transform2D(0, marker)
+	return get_world_2d().direct_space_state.intersect_shape(query, 1).is_empty()
+
+
+func _update_drawn_wire(cursor: Vector2) -> void:
+	var offset := cursor - _wire_start
+	var direction := Vector2.UP.rotated(_requested_turns * PI / 2.0)
+	var distance := 0.0
+	if absf(offset.x) > absf(offset.y):
+		direction = Vector2(signf(offset.x), 0)
+		distance = absf(offset.x)
+	elif not is_zero_approx(offset.y):
+		direction = Vector2(0, signf(offset.y))
+		distance = absf(offset.y)
+	var cells := maxi(roundi(distance / WIRE_STEP), 1)
+	if not Input.is_key_pressed(KEY_CTRL):
+		cells = mini(cells, MAX_WIRE_CELLS)
+	var length := cells * WIRE_STEP
+	var start := _wire_start
+	if not free_build_mode and not _wire_start_connected:
+		start -= direction * WIRE_STEP * 0.5
+	_wire_route = PackedVector2Array([start, start + direction * length])
+	placement_position = (_wire_route[0] + _wire_route[1]) * 0.5
+
+
+func _start_wire_drawing(cursor: Vector2) -> void:
+	_wire_start_connected = false
+	_wire_start = cursor if free_build_mode else (cursor / WIRE_STEP).floor() * WIRE_STEP + Vector2.ONE * WIRE_STEP * 0.5
+	if not free_build_mode and not Input.is_key_pressed(KEY_CTRL):
+		var nearest := WIRE_STEP * 0.25
+		for wire in _free_buildings:
+			if not is_instance_valid(wire) or wire.is_queued_for_deletion() or wire.get_meta("building_id", &"") != &"wire":
+				continue
+			for connection in _available_ends(wire):
+				var distance := cursor.distance_to(connection.point)
+				if distance < nearest:
+					nearest = distance
+					_wire_start = connection.point
+					_wire_start_connected = true
+	_drawing_wire = true
+	update_preview(cursor)
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -159,6 +230,12 @@ func _valid_location() -> bool:
 	if definition == null:
 		return false
 	if not _wire_route.is_empty():
+		if definition.id == &"wire":
+			var length := 0.0
+			for index in _wire_route.size() - 1:
+				length += _wire_route[index].distance_to(_wire_route[index + 1])
+			if length < WIRE_STEP - 0.01 or length > _connection_limit() + 0.01:
+				return false
 		return _route_is_clear(_wire_route, _route_exclude)
 	var size_cells := dimensions()
 	var rect := Rect2(Vector2(cell * CELL_SIZE), Vector2(size_cells * CELL_SIZE))
@@ -205,13 +282,20 @@ func confirm() -> bool:
 		for x in size_cells.x:
 			for y in size_cells.y:
 				_occupied[cell + Vector2i(x, y)] = building
+	_refresh_wire_connections()
 	building_placed.emit(building)
 	feedback.emit("Здание установлено")
+	_drawing_wire = false
 	update_preview(_cursor_position)
 	return true
 
 
 func _draw() -> void:
+	if not active and selected_tool == 2:
+		for index in range(0, _cut_preview.size(), 2):
+			draw_line(_cut_preview[index], _cut_preview[index + 1], Color(1.0, 0.25, 0.18, 0.85), WIRE_STEP)
+			draw_line(_cut_preview[index], _cut_preview[index + 1], Color(1.0, 0.9, 0.5), 1.0)
+		return
 	if not active or definition == null:
 		return
 	var size_cells := dimensions()
@@ -222,15 +306,25 @@ func _draw() -> void:
 		if turns % 2 == 1:
 			wire_size = Vector2(wire_size.y, wire_size.x)
 		if definition.id in [&"wire", &"pipe"] and not free_build_mode:
-			var step := float(CELL_SIZE) / 5.0
+			var divisions := 4 if definition.id == &"wire" else 5
+			var step := float(CELL_SIZE) / divisions
 			var grid_origin := origin - Vector2(CELL_SIZE, CELL_SIZE)
-			for index in range(16):
+			for index in range(divisions * 3 + 1):
 				var offset := index * step
-				var grid_color := Color(0.8, 0.85, 0.85, 0.45 if index % 5 == 0 else 0.18)
+				var grid_color := Color(0.8, 0.85, 0.85, 0.45 if index % divisions == 0 else 0.18)
 				draw_line(grid_origin + Vector2(offset, 0), grid_origin + Vector2(offset, CELL_SIZE * 3), grid_color)
 				draw_line(grid_origin + Vector2(0, offset), grid_origin + Vector2(CELL_SIZE * 3, offset), grid_color)
-		if not _wire_route.is_empty():
-			draw_polyline(_wire_route, tint, 6.4)
+		if definition.id == &"wire" and not _drawing_wire:
+			var marker := _cursor_position if free_build_mode else (_cursor_position / WIRE_STEP).floor() * WIRE_STEP + Vector2.ONE * WIRE_STEP * 0.5
+			draw_rect(Rect2(marker - Vector2.ONE * WIRE_STEP * 0.5, Vector2.ONE * WIRE_STEP), tint)
+		elif not _wire_route.is_empty():
+			draw_polyline(_wire_route, tint, definition.preview_size.x)
+			if definition.id == &"wire":
+				for index in _wire_route.size() - 1:
+					var direction := (_wire_route[index + 1] - _wire_route[index]).normalized()
+					var middle := (_wire_route[index] + _wire_route[index + 1]) * 0.5
+					var side := direction.orthogonal() * 1.6
+					draw_colored_polygon(PackedVector2Array([middle + direction * 2, middle - direction * 2 + side, middle - direction * 2 - side]), Color(0.95, 0.85, 0.55))
 		else:
 			draw_rect(Rect2(placement_position - wire_size * 0.5, wire_size), tint)
 		return
@@ -254,14 +348,26 @@ func _draw() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not active and selected_tool == 2 and event is InputEventMouseMotion and _using_tool and Input.is_physical_key_pressed(KEY_X):
+		_sweep_cut_wires(get_canvas_transform().affine_inverse() * event.position)
+		get_viewport().set_input_as_handled()
+		return
 	if not active and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		_using_tool = true
+		if selected_tool == 2:
+			_last_cut_cursor = get_canvas_transform().affine_inverse() * event.position
+			cut_wire_at(_last_cut_cursor)
+			get_viewport().set_input_as_handled()
 		return
 	if not active or not event is InputEventMouseButton or not event.pressed:
 		return
 	if event.button_index == MOUSE_BUTTON_LEFT:
-		update_preview(get_canvas_transform().affine_inverse() * event.position)
-		confirm()
+		var cursor: Vector2 = get_canvas_transform().affine_inverse() * event.position
+		if definition.id == &"wire":
+			_start_wire_drawing(cursor)
+		else:
+			update_preview(cursor)
+			confirm()
 	elif event.button_index == MOUSE_BUTTON_RIGHT:
 		cancel()
 	else:
@@ -271,11 +377,21 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		if active and _drawing_wire:
+			update_preview(get_canvas_transform().affine_inverse() * event.position)
+			confirm()
+			_drawing_wire = false
+			update_preview(_cursor_position)
+			get_viewport().set_input_as_handled()
 		_using_tool = false
 		_reset_demolition()
 
 
 func _physics_process(delta: float) -> void:
+	if selected_tool == 2:
+		if _using_tool and Input.is_physical_key_pressed(KEY_X):
+			_sweep_cut_wires(get_global_mouse_position())
+		return
 	advance_demolition(delta, get_global_mouse_position(), _using_tool)
 
 
@@ -331,6 +447,7 @@ func remove_building(building: Node2D) -> void:
 		if _occupied[occupied_cell] == building:
 			_occupied.erase(occupied_cell)
 	building.queue_free()
+	_refresh_wire_connections()
 
 
 func _reset_demolition() -> void:
@@ -340,6 +457,8 @@ func _reset_demolition() -> void:
 
 
 func set_tool(index: int) -> void:
+	_cut_preview.clear()
+	queue_redraw()
 	selected_tool = index
 	_using_tool = false
 	_reset_demolition()
@@ -365,12 +484,12 @@ func _route_is_clear(points: PackedVector2Array, excluded: Array[RID]) -> bool:
 		if delta.length() < 0.01:
 			return false
 		var shape := RectangleShape2D.new()
-		shape.size = Vector2(delta.length() - 0.1, 6.2)
+		shape.size = Vector2(delta.length() - 0.1, definition.preview_size.x - 0.2)
 		var query := PhysicsShapeQueryParameters2D.new()
 		query.shape = shape
 		query.transform = Transform2D(delta.angle(), (points[index] + points[index + 1]) * 0.5)
 		query.exclude = excluded
-		var extent := Vector2(absf(delta.x), absf(delta.y)) * 0.5 + Vector2(3.2, 3.2)
+		var extent: Vector2 = Vector2(absf(delta.x), absf(delta.y)) * 0.5 + Vector2.ONE * definition.preview_size.x * 0.5
 		if not bounds.encloses(Rect2(query.transform.origin - extent, extent * 2)):
 			return false
 		if not get_world_2d().direct_space_state.intersect_shape(query, 1).is_empty():
@@ -382,7 +501,7 @@ func _find_wire_bridge(cursor: Vector2) -> void:
 	for wire in _free_buildings:
 		if is_instance_valid(wire) and not wire.is_queued_for_deletion() and wire.get_meta("building_id", &"") == definition.id and wire.has_method("connection_ends"):
 			for connection in _available_ends(wire):
-				if cursor.distance_to(connection.point) <= MAX_CONNECTION_LENGTH + 14.0:
+				if cursor.distance_to(connection.point) <= _connection_limit() + 14.0:
 					wires.append(wire)
 					break
 	var best_score := INF
@@ -394,7 +513,7 @@ func _find_wire_bridge(cursor: Vector2) -> void:
 				for b in _available_ends(second):
 					var offset: Vector2 = b.point - a.point
 					var length := absf(offset.x) + absf(offset.y)
-					if length < 6.4 or length > MAX_CONNECTION_LENGTH or absf(offset.x) < 0.1 or absf(offset.y) < 0.1:
+					if length < definition.preview_size.x or length > _connection_limit() or absf(offset.x) < 0.1 or absf(offset.y) < 0.1:
 						continue
 					var points := PackedVector2Array([a.point])
 					if absf(a.direction.dot(b.direction)) < 0.1:
@@ -435,7 +554,7 @@ func _find_corner_bridge(cursor: Vector2) -> void:
 		if not is_instance_valid(building) or building.is_queued_for_deletion() or building.get_meta("building_id", &"") != definition.id:
 			continue
 		for connection in _available_ends(building):
-			if cursor.distance_to(connection.point) < MAX_CONNECTION_LENGTH + 14.0:
+			if cursor.distance_to(connection.point) < _connection_limit() + 14.0:
 				nearby.append(building)
 				break
 	var best_score := INF
@@ -445,10 +564,10 @@ func _find_corner_bridge(cursor: Vector2) -> void:
 			var second := nearby[second_index]
 			for a in _available_ends(first):
 				for b in _available_ends(second):
-					if a.point.distance_to(b.point) < 0.1 or a.point.distance_to(b.point) > MAX_CONNECTION_LENGTH:
+					if a.point.distance_to(b.point) < 0.1 or a.point.distance_to(b.point) > _connection_limit():
 						continue
-					var start: Vector2 = a.point + a.direction * 6.4
-					var finish: Vector2 = b.point + b.direction * 6.4
+					var start: Vector2 = a.point + a.direction * definition.preview_size.x
+					var finish: Vector2 = b.point + b.direction * definition.preview_size.x
 					for corner in [Vector2(start.x, finish.y), Vector2(finish.x, start.y)]:
 						var points := PackedVector2Array()
 						for point in [a.point, start, corner, finish, b.point]:
@@ -459,14 +578,14 @@ func _find_corner_bridge(cursor: Vector2) -> void:
 						for index in points.size() - 1:
 							length += points[index].distance_to(points[index + 1])
 							distance = minf(distance, cursor.distance_to(Geometry2D.get_closest_point_to_segment(cursor, points[index], points[index + 1])))
-						if length > MAX_CONNECTION_LENGTH or distance > 14.0:
+						if length > _connection_limit() or distance > 14.0:
 							continue
 						# Only the end caps may touch the two source objects.
 						var enters_source := false
 						for index in points.size() - 1:
 							var midpoint := (points[index] + points[index + 1]) * 0.5
 							for source in [first, second]:
-								if source.route.is_empty() and Rect2(Vector2(-3.1, -15.9), Vector2(6.2, 31.8)).has_point(source.to_local(midpoint)):
+								if source.route.is_empty() and Rect2(-definition.preview_size * 0.5 + Vector2.ONE * 0.1, definition.preview_size - Vector2.ONE * 0.2).has_point(source.to_local(midpoint)):
 									enters_source = true
 						if enters_source:
 							continue
@@ -476,3 +595,144 @@ func _find_corner_bridge(cursor: Vector2) -> void:
 							best_score = score
 							_wire_route = points
 							_route_exclude = excluded
+
+
+func _refresh_wire_connections() -> void:
+	var wires: Array[Node2D] = []
+	for wire in _free_buildings:
+		if is_instance_valid(wire) and not wire.is_queued_for_deletion() and wire.get_meta("building_id", &"") == &"wire":
+			wire.connected_inputs.clear()
+			wire.connected_outputs.clear()
+			wires.append(wire)
+	for source in wires:
+		for target in wires:
+			if source == target:
+				continue
+			if source.output_point().distance_to(target.input_point()) < 0.15:
+				source.connected_outputs.append(target)
+				target.connected_inputs.append(source)
+
+
+func _connection_limit() -> float:
+	if definition.id == &"wire":
+		return INF if Input.is_key_pressed(KEY_CTRL) else WIRE_STEP * MAX_WIRE_CELLS
+	return MAX_CONNECTION_LENGTH
+
+
+func _sweep_cut_wires(cursor: Vector2) -> void:
+	var count := maxi(1, ceili(_last_cut_cursor.distance_to(cursor) / (WIRE_STEP * 0.5)))
+	for index in range(1, count + 1):
+		cut_wire_at(_last_cut_cursor.lerp(cursor, float(index) / count))
+	_last_cut_cursor = cursor
+
+
+func _update_cut_preview(cursor: Vector2) -> void:
+	var plan := _wire_cut_plan(cursor)
+	_cut_preview = plan.get("segments", PackedVector2Array())
+	queue_redraw()
+
+
+func cut_wire_at(cursor: Vector2) -> bool:
+	var plan := _wire_cut_plan(cursor)
+	if plan.is_empty():
+		return false
+	var wire: Node2D = plan.wire
+	var scene: PackedScene = load(wire.scene_file_path)
+	for fragment in plan.fragments:
+		var replacement: Node2D = scene.instantiate()
+		replacement.route = fragment
+		replacement.route_width = wire.route_width
+		replacement.route_color = wire.route_color
+		replacement.set_meta("building_id", &"wire")
+		get_parent().add_child(replacement)
+		_free_buildings.append(replacement)
+	remove_building(wire)
+	wire_cut.emit(plan.removed)
+	feedback.emit("Провод срезан")
+	_update_cut_preview(cursor)
+	return true
+
+
+func _wire_cut_plan(cursor: Vector2) -> Dictionary:
+	if active or selected_tool != 2 or not is_instance_valid(actor) or actor.menu_open or actor.vitals.health <= 0 or get_viewport().gui_get_hovered_control() != null:
+		return {}
+	var area_shape := actor.get_node("InteractionArea/CollisionShape2D") as CollisionShape2D
+	var local_cursor := area_shape.to_local(cursor)
+	if local_cursor.length() > area_shape.shape.radius:
+		return {}
+	var cut_size: float = WIRE_STEP if Input.is_physical_key_pressed(KEY_X) else CELL_SIZE
+	var cell_rect := Rect2((cursor / cut_size).floor() * cut_size, Vector2.ONE * cut_size)
+	for wire in _free_buildings.duplicate():
+		if not is_instance_valid(wire) or wire.is_queued_for_deletion() or wire.get_meta("building_id", &"") != &"wire":
+			continue
+		var points := PackedVector2Array()
+		if wire.route.is_empty():
+			points = PackedVector2Array([wire.input_point(), wire.output_point()])
+		else:
+			for point in wire.route:
+				points.append(wire.to_global(point))
+		var touched := false
+		for index in points.size() - 1:
+			if cursor.distance_to(Geometry2D.get_closest_point_to_segment(cursor, points[index], points[index + 1])) < wire.route_width * 0.5:
+				touched = true
+		if not touched:
+			continue
+		var ray := PhysicsRayQueryParameters2D.create(actor.global_position, cursor)
+		var exclusions: Array[RID] = [actor.get_rid()]
+		for building in get_tree().get_nodes_in_group("buildings"):
+			if building.get_meta("building_id", &"") == &"wire":
+				exclusions.append(building.get_rid())
+		ray.exclude = exclusions
+		var hit := get_world_2d().direct_space_state.intersect_ray(ray)
+		if not hit.is_empty() and hit.collider != wire:
+			return {}
+		var fragments: Array[PackedVector2Array] = []
+		var removed := 0.0
+		var segments := PackedVector2Array()
+		for index in points.size() - 1:
+			var a := points[index]
+			var b := points[index + 1]
+			var interval := _segment_cell_interval(a, b, cell_rect)
+			if interval.x < 0:
+				_append_wire_piece(fragments, a, b)
+			else:
+				var before := a.lerp(b, interval.x)
+				var after := a.lerp(b, interval.y)
+				_append_wire_piece(fragments, a, before)
+				_append_wire_piece(fragments, after, b)
+				removed += before.distance_to(after)
+				segments.append(before)
+				segments.append(after)
+		if removed < 0.01:
+			continue
+		return {"wire": wire, "fragments": fragments, "removed": removed, "segments": segments}
+	return {}
+
+
+func _segment_cell_interval(a: Vector2, b: Vector2, rect: Rect2) -> Vector2:
+	var start := 0.0
+	var finish := 1.0
+	var delta := b - a
+	for axis in 2:
+		if absf(delta[axis]) < 0.001:
+			if a[axis] <= rect.position[axis] + 0.001 or a[axis] >= rect.end[axis] - 0.001:
+				return Vector2(-1, -1)
+		else:
+			var first: float = (rect.position[axis] - a[axis]) / delta[axis]
+			var last: float = (rect.end[axis] - a[axis]) / delta[axis]
+			start = maxf(start, minf(first, last))
+			finish = minf(finish, maxf(first, last))
+	if finish - start < 0.001:
+		return Vector2(-1, -1)
+	return Vector2(start, finish)
+
+
+func _append_wire_piece(fragments: Array[PackedVector2Array], a: Vector2, b: Vector2) -> void:
+	if a.distance_to(b) < 0.01:
+		return
+	if not fragments.is_empty() and fragments[-1][-1].is_equal_approx(a):
+		var joined := fragments[-1]
+		joined.append(b)
+		fragments[-1] = joined
+	else:
+		fragments.append(PackedVector2Array([a, b]))

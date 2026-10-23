@@ -253,12 +253,12 @@ func _refresh_tools() -> void:
 	_tools_button.text = title
 	_tools_button.add_theme_font_size_override("font_size", 12)
 	ItemSlotPresentation.apply(_tools_button, item_id, 1)
-	_tools_button.tooltip_text = title + " — удерживай ЛКМ на постройке" if not title.is_empty() else "Пустой слот инструмента"
+	_tools_button.tooltip_text = "Кусачки — ЛКМ: одна большая клетка; X + ЛКМ: срезать по одной маленькой клетке" if item_id == &"wire_cutters" else (title + " — удерживай ЛКМ на постройке" if not title.is_empty() else "Пустой слот инструмента")
 	for index in _tool_slots.size():
 		var slot_item: StringName = tools.item_at_slot(index) if tools != null else &""
 		_tool_slots[index].text = _item_name(slot_item) if slot_item != &"" else ""
 		_tool_slots[index].add_theme_font_size_override("font_size", 12)
-		_tool_slots[index].tooltip_text = "Кувалда — разрушить за 0,6 с" if slot_item == &"sledgehammer" else ("Отвёртка — разобрать за 3 с" if slot_item == &"screwdriver" else "Пустой слот")
+		_tool_slots[index].tooltip_text = "Кувалда — разрушить за 0,6 с" if slot_item == &"sledgehammer" else ("Отвёртка — разобрать за 3 с" if slot_item == &"screwdriver" else ("Кусачки — ЛКМ: одна большая клетка; X + ЛКМ: срезать по одной маленькой клетке" if slot_item == &"wire_cutters" else "Пустой слот"))
 		_style_slot(_tool_slots[index], Color(0.11, 0.13, 0.15, 0.72), index == selected_tool)
 		ItemSlotPresentation.apply(_tool_slots[index], slot_item, 1)
 
@@ -266,7 +266,7 @@ func _sync_tool() -> void:
 	if not is_instance_valid(_construction) or tools == null:
 		return
 	var tool_id: StringName = tools.item_at_slot(selected_tool)
-	_construction.set_tool(0 if tool_id == &"sledgehammer" else (1 if tool_id == &"screwdriver" else -1))
+	_construction.set_tool(0 if tool_id == &"sledgehammer" else (1 if tool_id == &"screwdriver" else (2 if tool_id == &"wire_cutters" else -1)))
 
 
 func _on_tools_changed() -> void:

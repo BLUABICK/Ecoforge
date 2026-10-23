@@ -9,6 +9,8 @@ func _run() -> void:
 	var player = world.get_node("Player2d")
 	var hud = world.get_node("HUD/PlayerHUD")
 	var tools = player.get_node("Interaction").tools
+	_cycle(hud, [1, 2, -1, 0], "Three tools including cutters and empty hands")
+	tools.remove(&"wire_cutters", 1)
 	_cycle(hud, [1, -1, 0, 1, -1, 0], "Two tools and empty hands")
 	tools.remove(&"screwdriver", 1)
 	hud._select_tool(0)
