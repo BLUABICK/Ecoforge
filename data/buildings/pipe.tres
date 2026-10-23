@@ -11,6 +11,6 @@ footprint = Vector2i(1, 1)
 scene = ExtResource("2")
 
 
-preview_size = Vector2(6.4, 32)
+preview_size = Vector2(16, 32)
 free_placement = true
 length_axis_snap = false

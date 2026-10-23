@@ -19,7 +19,7 @@ offset_bottom = 70.0
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
 theme_override_constants/shadow_offset_x = 2
 theme_override_constants/shadow_offset_y = 2
-text = "ECOFORGE — тест персонажа\nWASD / стрелки — ходить | Ctrl — бег | Shift — медленный шаг | 1–5 — слот | E — открыть контейнер"
+text = "ECOFORGE — тест персонажа\nWASD / стрелки — ходить | Shift — бег | Ctrl — медленный шаг | 1–5 — слот | E — открыть контейнер"
 
 
 

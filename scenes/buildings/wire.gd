@@ -1,6 +1,7 @@
 extends StaticBody2D
 
 var route := PackedVector2Array()
+var route_is_rounded := false
 var connected_inputs: Array[Node2D] = []
 var connected_outputs: Array[Node2D] = []
 @export var route_width: float = 6.4
@@ -8,9 +9,12 @@ var connected_outputs: Array[Node2D] = []
 
 func _ready() -> void:
 	if route.is_empty():
-		if get_meta("building_id", &"") == &"wire" and has_node("Direction"):
+		if get_meta("building_id", &"") in [&"wire", &"pipe"] and has_node("Direction"):
 			get_node("Direction").rotation = PI
 		return
+	if get_meta("building_id", &"") == &"pipe" and not route_is_rounded:
+		route = rounded_route(route, route_width * 0.5)
+		route_is_rounded = true
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
@@ -46,10 +50,36 @@ func output_point() -> Vector2:
 
 
 func _draw() -> void:
-	if route.is_empty() or get_meta("building_id", &"") != &"wire":
+	if route.is_empty() or get_meta("building_id", &"") not in [&"wire", &"pipe"]:
 		return
 	for index in route.size() - 1:
+		if route[index].distance_to(route[index + 1]) < 6.0:
+			continue
 		var direction := (route[index + 1] - route[index]).normalized()
 		var middle := (route[index] + route[index + 1]) * 0.5
 		var side := direction.orthogonal() * 1.6
 		draw_colored_polygon(PackedVector2Array([middle + direction * 2, middle - direction * 2 + side, middle - direction * 2 - side]), Color(0.95, 0.85, 0.55))
+
+
+static func rounded_route(points: PackedVector2Array, radius: float) -> PackedVector2Array:
+	if points.size() < 3:
+		return points.duplicate()
+	var result := PackedVector2Array([points[0]])
+	for index in range(1, points.size() - 1):
+		var corner := points[index]
+		var incoming := corner - points[index - 1]
+		var outgoing := points[index + 1] - corner
+		if incoming.length() < 0.01 or outgoing.length() < 0.01:
+			continue
+		if absf(incoming.normalized().dot(outgoing.normalized())) > 0.999:
+			result.append(corner)
+			continue
+		var distance := minf(radius, minf(incoming.length(), outgoing.length()) * 0.45)
+		var before := corner - incoming.normalized() * distance
+		var after := corner + outgoing.normalized() * distance
+		result.append(before)
+		for step in range(1, 9):
+			var t := float(step) / 8.0
+			result.append(before * (1.0 - t) * (1.0 - t) + corner * 2.0 * (1.0 - t) * t + after * t * t)
+	result.append(points[-1])
+	return result

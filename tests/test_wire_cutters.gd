@@ -58,8 +58,8 @@ func run() -> void:
 	await physics_frame
 	var pipe = add_wire(PackedVector2Array([Vector2(1408, 716), Vector2(1440, 716)]), &"pipe")
 	await physics_frame
-	check(not controller.cut_wire_at(Vector2(1420, 716)) and not pipe.is_queued_for_deletion(), "Cutters ignore pipes")
-	controller.remove_building(pipe)
+	check(controller.cut_wire_at(Vector2(1420, 716)) and pipe.is_queued_for_deletion(), "Universal secateur also cuts pipes")
+
 	await physics_frame
 	player.position = Vector2(1424, 728)
 	controller._last_cut_cursor = Vector2(1392, 708)
@@ -115,6 +115,10 @@ func run() -> void:
 	player.menu_open = false
 	controller.set_tool(0)
 	check(not controller.cut_wire_at(Vector2(1612, 708)), "Other tools do not trigger cutting")
+	var separate_wire = add_wire(PackedVector2Array([Vector2(1700, 1004), Vector2(1716, 1004)]), &"wire")
+	var separate_pipe = add_wire(PackedVector2Array([Vector2(1716, 1004), Vector2(1732, 1004)]), &"pipe")
+	controller._refresh_wire_connections()
+	check(separate_wire.connected_outputs.is_empty() and separate_pipe.connected_inputs.is_empty(), "Pipes and wires never connect to each other")
 	world.queue_free()
 	await process_frame
 	print("Cutters failures: ", failures)

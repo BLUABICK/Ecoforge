@@ -45,10 +45,10 @@ func _run() -> void:
 			_check(controller.placement_position.is_equal_approx(Vector2(1501, 368)), "Vertical pipe snaps length and preserves cursor width")
 			controller.cancel()
 		if definition.free_placement and not definition.length_axis_snap:
-			_check(building.position.is_equal_approx(Vector2(1398.4, 348.8) if definition.id == &"pipe" else Vector2(1404, 948)), "Pipe and wire use the same building-specific placement grid")
+			_check(building.position.is_equal_approx(Vector2(1404, 348) if definition.id == &"pipe" else Vector2(1404, 948)), "Pipe and wire use the same building-specific placement grid")
 			controller.begin(definition)
 			controller.update_preview(Vector2(1400, 950))
-			_check(controller.placement_position.is_equal_approx(Vector2(1398.4, 950.4) if definition.id == &"pipe" else Vector2(1404, 948)), "Vertical wire snaps to building-specific cell grid")
+			_check(controller.placement_position.is_equal_approx(Vector2(1404, 948)), "Vertical wire snaps to building-specific cell grid")
 			controller.turns = 1
 			var connection_position: Vector2 = building.position + Vector2(32, 0)
 			controller.update_preview(connection_position + Vector2(2, 2))
@@ -76,7 +76,7 @@ func _run() -> void:
 			Input.parse_input_event(ctrl)
 			Input.flush_buffered_events()
 			controller.turns = 0
-			var elbow_position: Vector2 = building.position + Vector2(20, 12) if definition.id == &"wire" else building.position + Vector2(19.2, 12.8)
+			var elbow_position: Vector2 = building.position + (Vector2(24, 8) if definition.id == &"pipe" else Vector2(20, 12))
 			controller.update_preview(elbow_position + Vector2(1, 1))
 			_check(controller.turns == 0 and controller.placement_position.is_equal_approx(elbow_position), "Perpendicular section attaches at the free end without rotating")
 			_check(controller.confirm(), "End-to-corner connection can be built")
@@ -95,7 +95,7 @@ func _run() -> void:
 			controller.remove_building(controller._free_buildings.back())
 			await physics_frame
 			controller.turns = 1
-			controller.update_preview(building.position + Vector2(0, 8))
+			controller.update_preview(building.position + Vector2(0, definition.preview_size.x))
 			_check(controller.confirm(), "Two non-overlapping wires fit in the same cell")
 			await physics_frame
 			controller.remove_building(controller._free_buildings.back())

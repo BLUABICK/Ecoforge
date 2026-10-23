@@ -22,15 +22,15 @@ func _run() -> void:
 		controller._free_buildings.append(wire)
 	await physics_frame
 	controller.begin(source)
-	controller.update_preview(Vector2(1401, 677))
+	controller.update_preview(Vector2(1412, 680))
 	check(controller._wire_route.size() == 3, "Preview bends to connect two offset pipes")
 	check(controller.can_place and controller.confirm(), "Bent bridge can be placed")
 	await physics_frame
 	var bridge = controller._free_buildings.back()
-	check(bridge.route.size() == 3 and bridge.get_child_count() == 3, "Placed bridge has line and collision on both segments")
-	check(bridge.connection_ends()[0].point.is_equal_approx(Vector2(1400, 684)) and bridge.connection_ends()[1].point.is_equal_approx(Vector2(1416, 668)), "Bridge touches both pipe ends")
+	check(bridge.route.size() > 3 and bridge.get_child_count() == bridge.route.size(), "Placed bridge has line and collision on both segments")
+	check((bridge.input_point().is_equal_approx(Vector2(1400, 684)) and bridge.output_point().is_equal_approx(Vector2(1416, 668))) or (bridge.output_point().is_equal_approx(Vector2(1400, 684)) and bridge.input_point().is_equal_approx(Vector2(1416, 668))), "Bridge touches both pipe ends")
 	controller.free_build_mode = true
-	controller.update_preview(Vector2(1401, 677))
+	controller.update_preview(Vector2(1412, 680))
 	check(controller._wire_route.is_empty(), "Free placement disables bending")
 	world.queue_free()
 	await process_frame
