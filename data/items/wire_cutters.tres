@@ -1,9 +1,11 @@
-[gd_resource type="Resource" load_steps=2 format=3]
+[gd_resource type="Resource" load_steps=3 format=3]
 [ext_resource type="Script" path="res://data/definitions/item_definition.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/nippers.png" id="2_icon"]
 [resource]
 script = ExtResource("1")
 id = &"wire_cutters"
 display_name = "Универсальный секатор"
 stack_limit = 1
 is_tool = true
-description = "ЛКМ — срезать трубу или провод в одной большой клетке. X + ЛКМ — срезать трубу или провод по одной маленькой клетке. Подсвечивается удаляемый участок."
+icon = ExtResource("2_icon")
+description = "Ctrl + ЛКМ с перетаскиванием — выделить область срезания. Обычный ЛКМ — одиночный срез. Дальность — 128 пикселей; дальние участки удаляются при приближении. ПКМ — отменить выделение. X + ЛКМ — точный срез."

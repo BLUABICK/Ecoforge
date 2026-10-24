@@ -61,7 +61,7 @@ func _run() -> void:
 	interaction._cooldown = 0.0
 	interaction.interact()
 	_check(interaction.target == null and interaction.inventory.total() == 1, "Cannot mine remotely")
-	player.position = Vector2(480, 620)
+	player.position = world._storage.position + Vector2(0, -40)
 	await physics_frame
 	await physics_frame
 	await physics_frame

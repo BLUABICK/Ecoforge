@@ -8,6 +8,9 @@ var connected_outputs: Array[Node2D] = []
 @export var route_color := Color(0.78, 0.48, 0.24)
 
 func _ready() -> void:
+	var caption := get_node_or_null("Name")
+	if caption != null:
+		caption.hide()
 	if route.is_empty():
 		if get_meta("building_id", &"") in [&"wire", &"pipe"] and has_node("Direction"):
 			get_node("Direction").rotation = PI
@@ -19,6 +22,7 @@ func _ready() -> void:
 		remove_child(child)
 		child.queue_free()
 	var line := Line2D.new()
+	line.show_behind_parent = true
 	line.points = route
 	line.width = route_width
 	line.default_color = route_color
@@ -57,8 +61,8 @@ func _draw() -> void:
 			continue
 		var direction := (route[index + 1] - route[index]).normalized()
 		var middle := (route[index] + route[index + 1]) * 0.5
-		var side := direction.orthogonal() * 1.6
-		draw_colored_polygon(PackedVector2Array([middle + direction * 2, middle - direction * 2 + side, middle - direction * 2 - side]), Color(0.95, 0.85, 0.55))
+		var side := direction.orthogonal() * minf(3.0, route_width * 0.3)
+		draw_colored_polygon(PackedVector2Array([middle + direction * 3, middle - direction * 3 + side, middle - direction * 3 - side]), Color(1.0, 0.96, 0.72))
 
 
 static func rounded_route(points: PackedVector2Array, radius: float) -> PackedVector2Array:

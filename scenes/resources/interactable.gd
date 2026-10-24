@@ -5,6 +5,10 @@ signal selection_changed(selected: bool)
 
 func _ready() -> void:
 	add_to_group("interactables")
+	if is_in_group("buildings"):
+		for child in get_children():
+			if child is Label:
+				child.hide()
 
 
 func set_selected(selected: bool) -> void:
@@ -20,6 +24,8 @@ func interact(_inventory: RefCounted, _secondary: bool = false) -> String:
 
 
 func can_interact_from(world_position: Vector2) -> bool:
+	if float(get_meta("construction_remaining", 0.0)) > 0.0:
+		return false
 	if not is_in_group("buildings") or not has_node("Direction"):
 		return true
 	var collision := get_node_or_null("CollisionShape2D") as CollisionShape2D

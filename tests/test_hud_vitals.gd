@@ -62,7 +62,7 @@ func _run() -> void:
 	_check(hud.selected_tool == 1, "Clicking tool slot changes selection")
 	var selected_style := hud._tool_slots[1].get_theme_stylebox("normal") as StyleBoxFlat
 	_check(selected_style.border_width_left == 0 and hud._tool_slots[0].get_theme_stylebox("normal").border_width_left == 0 and selected_style.bg_color != hud._tool_slots[0].get_theme_stylebox("normal").bg_color, "Selected tool uses background emphasis without borders")
-	_check(hud._stamina_bar.size.y < hud._health_bar.size.y and hud._stamina_bar.position.y < hud._health_bar.position.y, "Stamina is thinner and above HP")
+	_check(hud._stamina_bar.size.y < hud._health_bar.size.y and hud._stamina_bar.position.y > hud._health_bar.position.y and hud._health_bar.anchor_top == 0 and hud._health_bar.position.y == 24, "Vitals are top left with thinner stamina below HP")
 	hud._toggle_tools()
 	_check(get_nodes_in_group("interactables").size() == 1, "No surface ores in playground")
 	await process_frame

@@ -209,10 +209,11 @@ func set_catalog(buildings: Array[Resource]) -> void:
 		column.name = "BuildingContent"
 		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		column.offset_left = 3
-		column.offset_right = -3
-		column.offset_top = 3
-		column.offset_bottom = -3
+		var padding := 10 if _catalog[index].icon != null else 3
+		column.offset_left = padding
+		column.offset_right = -padding
+		column.offset_top = padding
+		column.offset_bottom = -padding
 		column.add_theme_constant_override("separation", 2)
 		slot.add_child(column)
 		var icon := TextureRect.new()
@@ -224,6 +225,8 @@ func set_catalog(buildings: Array[Resource]) -> void:
 		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		column.add_child(icon)
+		if icon.texture != null:
+			continue
 		var caption := Label.new()
 		caption.text = _catalog[index].display_name
 		caption.add_theme_font_size_override("font_size", 10)

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://data/definitions/building_definition.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/buildings/small_container.tscn" id="2"]
-[ext_resource type="Texture2D" path="res://assets/sprites/small_container_closed.png" id="3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/small_container_icon.png" id="3"]
 
 [resource]
 script = ExtResource("1")

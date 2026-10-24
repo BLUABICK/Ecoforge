@@ -6,10 +6,6 @@ extends Node2D
 const Deposit = preload("res://scenes/resources/resource_deposit.gd")
 const Storage = preload("res://scenes/resources/resource_storage.gd")
 const Visual = preload("res://tests/fixtures/resource_visual.gd")
-var _status: Label
-var _prompt: Label
-var _bag: Label
-var _chest: Label
 var _storage: StaticBody2D
 var construction: Node2D
 
@@ -36,7 +32,6 @@ func _ready() -> void:
 	camera.limit_right = int(WORLD_SIZE.x)
 	camera.limit_bottom = int(WORLD_SIZE.y)
 	_add_resources()
-	_add_resource_hud()
 	var player_hud := preload("res://scenes/ui/player_hud.tscn").instantiate()
 	$HUD.add_child(player_hud)
 	player_hud.bind($Player2d)
@@ -45,9 +40,9 @@ func _ready() -> void:
 	construction.z_index = 10
 	construction.bounds = Rect2(Vector2.ZERO, WORLD_SIZE)
 	add_child(construction)
+	construction.register_existing(_storage, preload("res://data/buildings/small_container.tres"), Vector2i(14, 21))
 	var catalog: Array[Resource] = [preload("res://data/buildings/small_container.tres"), preload("res://data/buildings/cargo_container.tres"), preload("res://data/buildings/terminal.tres"), preload("res://data/buildings/trade_terminal.tres"), preload("res://data/buildings/delivery_pad.tres"), preload("res://data/buildings/technoformer.tres"), preload("res://data/buildings/conveyor.tres"), preload("res://data/buildings/router.tres"), preload("res://data/buildings/junction.tres"), preload("res://data/buildings/pipe.tres"), preload("res://data/buildings/liquid_pump.tres"), preload("res://data/buildings/gas_pump.tres"), preload("res://data/buildings/wire.tres")]
 	player_hud.bind_construction(construction, catalog)
-	construction.feedback.connect(_on_feedback)
 
 
 func _add_wall(rect: Rect2) -> void:
@@ -99,38 +94,3 @@ func _add_fixture(body: StaticBody2D, location: Vector2, title: String, tint: Co
 		visual.tint = tint
 		body.add_child(visual)
 	add_child(body)
-
-
-func _add_resource_hud() -> void:
-	_bag = _label_at(100)
-	_chest = _label_at(160)
-	_prompt = _label_at(220)
-	_status = _label_at(260)
-	$Player2d/Interaction.feedback.connect(_on_feedback)
-
-
-func _label_at(y: float) -> Label:
-	var label := Label.new()
-	label.position = Vector2(20, y)
-	label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	label.add_theme_constant_override("shadow_offset_x", 2)
-	label.add_theme_constant_override("shadow_offset_y", 2)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	$HUD.add_child(label)
-	return label
-
-
-func _process(_delta: float) -> void:
-	if construction.active:
-		_prompt.text = "ЛКМ — установить | R — повернуть | ПКМ — отменить"
-		return
-	var interaction := $Player2d/Interaction
-	_prompt.text = interaction.target.get_prompt() if is_instance_valid(interaction.target) else "Подойди к контейнеру (синий)"
-
-
-func _describe(inventory: RefCounted) -> String:
-	return "Руда: %d | Известняк: %d" % [inventory.quantity(&"iron_ore"), inventory.quantity(&"limestone")]
-
-
-func _on_feedback(message: String) -> void:
-	_status.text = message

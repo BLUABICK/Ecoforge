@@ -67,6 +67,7 @@ func _run() -> void:
 	player.global_position = container.global_position + Vector2(0, -40)
 	await physics_frame
 	await physics_frame
+	controller.advance_construction(10.0)
 	interaction._cooldown = 0.0
 	interaction.interact()
 	_check(hud._storage_menu.visible and hud._storage_menu.storage == container and hud._storage_menu._storage_slots.size() == 25, "Built container opens its 25-slot inventory")

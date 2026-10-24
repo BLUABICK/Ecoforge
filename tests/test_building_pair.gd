@@ -44,62 +44,9 @@ func _run() -> void:
 			controller.update_preview(Vector2(1501, 357))
 			_check(controller.placement_position.is_equal_approx(Vector2(1501, 368)), "Vertical pipe snaps length and preserves cursor width")
 			controller.cancel()
-		if definition.free_placement and not definition.length_axis_snap:
-			_check(building.position.is_equal_approx(Vector2(1404, 348) if definition.id == &"pipe" else Vector2(1404, 948)), "Pipe and wire use the same building-specific placement grid")
-			controller.begin(definition)
-			controller.update_preview(Vector2(1400, 950))
-			_check(controller.placement_position.is_equal_approx(Vector2(1404, 948)), "Vertical wire snaps to building-specific cell grid")
-			controller.turns = 1
-			var connection_position: Vector2 = building.position + Vector2(32, 0)
-			controller.update_preview(connection_position + Vector2(2, 2))
-			_check(controller.placement_position.is_equal_approx(connection_position), "New wire snaps to existing wire endpoint")
-			controller.update_preview(connection_position + Vector2(10, 0))
-			_check(controller.placement_position.is_equal_approx(connection_position), "Wire connects within reduced attraction distance")
-			var toggle := InputEventKey.new()
-			toggle.physical_keycode = KEY_X
-			toggle.pressed = true
-			controller._unhandled_key_input(toggle)
-			var free_position: Vector2 = connection_position + Vector2(2.3, 1.7)
-			controller.update_preview(free_position)
-			_check(controller.free_build_mode and controller.placement_position.is_equal_approx(free_position), "X disables grid and wire attraction")
-			controller._unhandled_key_input(toggle)
-			_check(not controller.free_build_mode and controller.placement_position.is_equal_approx(connection_position), "X restores wire attraction")
-			var ctrl := InputEventKey.new()
-			ctrl.keycode = KEY_CTRL
-			ctrl.physical_keycode = KEY_CTRL
-			ctrl.pressed = true
-			Input.parse_input_event(ctrl)
-			Input.flush_buffered_events()
-			controller.update_preview(connection_position + Vector2(0, 8))
-			_check(not controller.placement_position.is_equal_approx(connection_position), "Held Ctrl disables attraction")
-			ctrl.pressed = false
-			Input.parse_input_event(ctrl)
-			Input.flush_buffered_events()
-			controller.turns = 0
-			var elbow_position: Vector2 = building.position + (Vector2(24, 8) if definition.id == &"pipe" else Vector2(20, 12))
-			controller.update_preview(elbow_position + Vector2(1, 1))
-			_check(controller.turns == 0 and controller.placement_position.is_equal_approx(elbow_position), "Perpendicular section attaches at the free end without rotating")
-			_check(controller.confirm(), "End-to-corner connection can be built")
-			await physics_frame
-			_check(controller._available_ends(building).size() == 1, "Corner connection occupies source endpoint")
-			controller.remove_building(controller._free_buildings.back())
-			await physics_frame
-			controller.turns = 0
-			controller.update_preview(connection_position + Vector2(2, 0))
-			_check(controller.turns == 1 and controller.placement_position.is_equal_approx(connection_position), "New section aligns with free endpoint direction")
-			controller.turns = 1
-			controller.update_preview(connection_position)
-			_check(controller.confirm(), "Connected wire can be placed without overlap")
-			await physics_frame
-			_check(controller._available_ends(building).size() == 1, "Occupied endpoint no longer attracts new sections")
-			controller.remove_building(controller._free_buildings.back())
-			await physics_frame
-			controller.turns = 1
-			controller.update_preview(building.position + Vector2(0, definition.preview_size.x))
-			_check(controller.confirm(), "Two non-overlapping wires fit in the same cell")
-			await physics_frame
-			controller.remove_building(controller._free_buildings.back())
-			await physics_frame
+		if definition.id in [&"wire", &"pipe"]:
+			# Directed drawing, snapping and turns are covered by test_endpoint_placement.gd.
+			_check(controller._wire_route.is_empty(), "Idle preview does not create automatic connectors")
 		controller.remove_building(building)
 		await physics_frame
 		_check(not is_instance_valid(building), "Building can be removed")

@@ -30,7 +30,6 @@ var _tool_slots: Array[Button] = []
 var _health_bar: ProgressBar
 var _stamina_bar: ProgressBar
 var _tool_panel: Control
-var _tool_status: Label
 var _tools_button: Button
 
 
@@ -113,16 +112,6 @@ func _ready() -> void:
 		_tool_panel.add_child(slot)
 		_tool_slots[index] = slot
 	_tool_panel.hide()
-	_tool_status = Label.new()
-	_tool_status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	_tool_status.offset_left = -310
-	_tool_status.offset_right = -106
-	_tool_status.offset_top = -94
-	_tool_status.offset_bottom = -24
-	_tool_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_tool_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_tool_status.add_theme_font_size_override("font_size", 15)
-	add_child(_tool_status)
 	resized.connect(_layout_bars)
 	_layout_bars()
 	_refresh_slots()
@@ -143,6 +132,7 @@ func _ready() -> void:
 
 func _make_slot() -> Button:
 	var slot := Button.new()
+	slot.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	slot.custom_minimum_size = Vector2(SLOT_SIZE, SLOT_SIZE)
 	slot.focus_mode = Control.FOCUS_NONE
 	_style_slot(slot, Color(0.035, 0.045, 0.055, 0.62))
@@ -156,13 +146,13 @@ func _style_slot(slot: Button, color: Color, outlined: bool = false) -> void:
 		slot.add_theme_stylebox_override(state, style)
 
 
-func _make_bar(height: float, bottom: float, color: Color) -> ProgressBar:
+func _make_bar(height: float, top: float, color: Color) -> ProgressBar:
 	var bar := ProgressBar.new()
-	bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	bar.offset_left = 24
 	bar.offset_right = 244
-	bar.offset_top = -bottom - height
-	bar.offset_bottom = -bottom
+	bar.offset_top = top
+	bar.offset_bottom = top + height
 	bar.show_percentage = false
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fill := StyleBoxFlat.new()
@@ -176,7 +166,7 @@ func _make_bar(height: float, bottom: float, color: Color) -> ProgressBar:
 
 
 func _layout_bars() -> void:
-	var width := minf(264.0, maxf(64.0, (size.x - HOTBAR_WIDTH) / 2.0 - 48.0))
+	var width := minf(264.0, maxf(64.0, size.x - 48.0))
 	_health_bar.offset_right = 24.0 + width
 	_stamina_bar.offset_right = 24.0 + width
 
@@ -265,12 +255,12 @@ func _refresh_tools() -> void:
 	_tools_button.text = title
 	_tools_button.add_theme_font_size_override("font_size", 12)
 	ItemSlotPresentation.apply(_tools_button, item_id, 1)
-	_tools_button.tooltip_text = "Универсальный секатор — ЛКМ: одна большая клетка; X + ЛКМ: срезать по одной маленькой клетке" if item_id == &"wire_cutters" else (title + " — удерживай ЛКМ на постройке" if not title.is_empty() else "Пустой слот инструмента")
+	_tools_button.tooltip_text = "Универсальный секатор — Ctrl + ЛКМ: выделить область; ПКМ: отменить; дальность 128 пикселей; X + ЛКМ: точный срез" if item_id == &"wire_cutters" else (title + " — удерживай ЛКМ на постройке; Ctrl + ЛКМ — выделить область" if not title.is_empty() else "Пустой слот инструмента")
 	for index in _tool_slots.size():
 		var slot_item: StringName = tools.item_at_slot(index) if tools != null else &""
 		_tool_slots[index].text = _item_name(slot_item) if slot_item != &"" else ""
 		_tool_slots[index].add_theme_font_size_override("font_size", 12)
-		_tool_slots[index].tooltip_text = "Кувалда — разрушить за 0,6 с" if slot_item == &"sledgehammer" else ("Отвёртка — разобрать за 3 с" if slot_item == &"screwdriver" else ("Универсальный секатор — ЛКМ: одна большая клетка; X + ЛКМ: срезать по одной маленькой клетке" if slot_item == &"wire_cutters" else "Пустой слот"))
+		_tool_slots[index].tooltip_text = "Кувалда — разрушить за 0,6 с; Ctrl + ЛКМ — выделить область" if slot_item == &"sledgehammer" else ("Отвёртка — разобрать за 3 с; Ctrl + ЛКМ — выделить область" if slot_item == &"screwdriver" else ("Универсальный секатор — Ctrl + ЛКМ: выделить область; ПКМ: отменить; дальность 128 пикселей; X + ЛКМ: точный срез" if slot_item == &"wire_cutters" else "Пустой слот"))
 		_style_slot(_tool_slots[index], Color(0.11, 0.13, 0.15, 0.72), index == selected_tool)
 		ItemSlotPresentation.apply(_tool_slots[index], slot_item, 1)
 
@@ -309,6 +299,7 @@ func _refresh_vitals() -> void:
 	_health_bar.value = vitals.health
 	_stamina_bar.max_value = vitals.max_stamina
 	_stamina_bar.value = vitals.stamina
+	_stamina_bar.visible = vitals.stamina_enabled
 
 
 func _item_name(item_id: StringName) -> String:
@@ -343,7 +334,6 @@ func bind_construction(controller: Node2D, buildings: Array[Resource]) -> void:
 	_construction = controller
 	_construction.actor = _player
 	_sync_tool()
-	_construction.demolition_progress.connect(func(text: String) -> void: _tool_status.text = text)
 	_inventory_menu.set_catalog(buildings)
 	_inventory_menu.building_selected.connect(_on_building_selected)
 	_construction.mode_changed.connect(_on_construction_mode_changed)

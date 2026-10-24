@@ -13,6 +13,7 @@ var _hitbox_bases: Array[Transform2D] = []
 
 
 func _ready() -> void:
+	add_to_group("player")
 	for child in get_children():
 		if child is CollisionShape2D:
 			_hitboxes.append(child)

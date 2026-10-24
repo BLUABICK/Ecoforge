@@ -28,6 +28,8 @@ func run() -> void:
 	await physics_frame
 	var controller = world.construction
 	controller.set_process(false)
+	world.get_node("Player2d").position = Vector2(1404, 650)
+	await physics_frame
 	var source = preload("res://data/buildings/wire.tres")
 	for cells in range(1, 5):
 		controller.begin(source)
@@ -42,7 +44,7 @@ func run() -> void:
 		check(controller._free_buildings.size() == 1, "Release places one wire")
 		var wire = controller._free_buildings.back()
 		check(is_equal_approx(wire.route[0].distance_to(wire.route[1]), cells * 8.0), "Placed wire preserves drawn length")
-		check(wire.get_child_count() == 2, "Drawn wire has visual and collision")
+		check(wire.get_child_count() == 2 and not wire.has_node("WorkVisual"), "Drawn wire has visual and collision")
 		var shape = wire.get_child(1).shape
 		var center: Vector2 = wire.get_child(1).position
 		var corner: Vector2 = center - shape.size * 0.5
@@ -108,10 +110,15 @@ func run() -> void:
 	ctrl(true)
 	mouse(controller, long_start + Vector2(160, 0), false)
 	await physics_frame
-	var long_wire = controller._free_buildings.back()
-	check(is_equal_approx(long_wire.route[0].distance_to(long_wire.route[1]), 160.0), "Ctrl permits placement of a wire longer than four cells")
+	var pieces: Array = controller._free_buildings.filter(func(segment): return segment.input_point().y > 990.0)
+	check(pieces.size() == 5, "Ctrl line splits into five manual-size segments")
+	for index in pieces.size():
+		check(is_equal_approx(pieces[index].input_point().distance_to(pieces[index].output_point()), 32.0), "Each segment is four small cells long")
+		if index > 0:
+			check(pieces[index - 1].connected_outputs.has(pieces[index]), "Split segments retain directed connections")
 	ctrl(false)
-	controller.remove_building(long_wire)
+	for piece in pieces:
+		controller.remove_building(piece)
 	await physics_frame
 	world.queue_free()
 	await process_frame

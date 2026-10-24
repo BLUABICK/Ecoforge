@@ -30,7 +30,7 @@ func _run() -> void:
 	await physics_frame
 	await process_frame
 	var player = world.get_node("Player2d")
-	player.position = Vector2(480, 620)
+	player.position = world._storage.position + Vector2(0, -40)
 	await physics_frame
 	await physics_frame
 	var interaction = player.get_node("Interaction")

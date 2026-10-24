@@ -50,7 +50,7 @@ func _run() -> void:
 	controller.advance_demolition(2.9, cursor, true)
 	_check(not building.is_queued_for_deletion(), "Screwdriver remains unfinished before three seconds")
 	controller.advance_demolition(0.11, cursor, true)
-	_check(building.is_queued_for_deletion() and controller._occupied.is_empty(), "Screwdriver removes building and frees grid")
+	_check(building.is_queued_for_deletion() and not controller._occupied.values().has(building), "Screwdriver removes building and frees grid")
 	await physics_frame
 	await physics_frame
 	controller.begin(source)
