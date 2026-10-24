@@ -5,6 +5,7 @@ const Inventory = preload("res://scenes/player/inventory.gd")
 signal target_changed(target: Node2D)
 signal feedback(message: String)
 signal storage_requested(storage: Node2D)
+signal trade_requested(terminal: Node2D)
 
 @export_range(32.0, 256.0, 1.0) var interaction_distance: float = 36.0
 @export_range(0.1, 2.0, 0.1) var repeat_interval: float = 0.4
@@ -41,7 +42,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if Input.is_action_just_pressed("interact_secondary"):
 		interact(true)
-	elif Input.is_action_pressed("interact") and _cooldown <= 0.0 and (not is_instance_valid(target) or not target.has_signal("menu_requested") or Input.is_action_just_pressed("interact")):
+	elif Input.is_action_pressed("interact") and _cooldown <= 0.0 and (not is_instance_valid(target) or (not target.has_signal("menu_requested") and not target.has_method("get_trade_catalog")) or Input.is_action_just_pressed("interact")):
 		interact()
 
 
@@ -58,6 +59,8 @@ func refresh_target() -> void:
 	for overlap in actor.get_world_2d().direct_space_state.intersect_shape(query, 256):
 		var candidate := overlap.collider as Node2D
 		if not candidate.is_in_group("interactables"):
+			continue
+		if candidate.has_method("can_interact_from") and not candidate.can_interact_from(actor.global_position):
 			continue
 		var distance := actor.global_position.distance_to(candidate.global_position)
 		if distance > best_distance:
@@ -84,7 +87,10 @@ func interact(secondary: bool = false) -> void:
 	if input_blocked or actor.get_node("Vitals").health <= 0.0 or not is_instance_valid(target) or _cooldown > 0.0:
 		return
 	_cooldown = repeat_interval
-	if target.has_signal("menu_requested"):
+	if target.has_method("get_trade_catalog"):
+		target.interact(inventory, secondary)
+		trade_requested.emit(target)
+	elif target.has_signal("menu_requested"):
 		storage_requested.emit(target)
 	else:
 		feedback.emit(target.interact(inventory, secondary))

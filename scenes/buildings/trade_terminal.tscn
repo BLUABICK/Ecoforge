@@ -1,9 +1,12 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/buildings/trade_terminal.gd" id="BuildingInteraction"]
 
 [sub_resource type="RectangleShape2D" id="Shape"]
 size = Vector2(64, 32)
 
 [node name="TradeTerminal" type="StaticBody2D" groups=["buildings"]]
+script = ExtResource("BuildingInteraction")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("Shape")

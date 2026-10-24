@@ -12,6 +12,8 @@ var _item_context: Node
 const InventoryMenu = preload("res://scenes/ui/inventory_menu.gd")
 const StorageMenu = preload("res://scenes/ui/storage_menu.gd")
 var _storage_menu: Control
+const TradeMenu = preload("res://scenes/ui/trade_terminal_menu.gd")
+var _trade_menu: Control
 var tools: RefCounted
 var _inventory_menu: Control
 var _player: Node
@@ -42,6 +44,7 @@ func bind(player: Node) -> void:
 	tools = player.get_node("Interaction").tools
 	tools.changed.connect(_on_tools_changed)
 	player.get_node("Interaction").storage_requested.connect(_open_storage)
+	player.get_node("Interaction").trade_requested.connect(_open_trade)
 	inventory.changed.connect(_refresh)
 	_refresh_tools()
 	vitals.changed.connect(_refresh_vitals)
@@ -131,6 +134,9 @@ func _ready() -> void:
 	_storage_menu = StorageMenu.new()
 	_storage_menu.closed.connect(_on_storage_closed)
 	add_child(_storage_menu)
+	_trade_menu = TradeMenu.new()
+	_trade_menu.closed.connect(_on_storage_closed)
+	add_child(_trade_menu)
 	_item_context = ItemContextMenu.new()
 	add_child(_item_context)
 
@@ -178,7 +184,7 @@ func _layout_bars() -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
-	if _storage_menu.visible or _inventory_menu.visible or (is_instance_valid(_construction) and _construction.active):
+	if _trade_menu.visible or _storage_menu.visible or _inventory_menu.visible or (is_instance_valid(_construction) and _construction.active):
 		return
 	if event.physical_keycode == KEY_Q:
 		_cycle_tool()
@@ -194,6 +200,12 @@ func _input(event: InputEvent) -> void:
 	var window_mode := get_node_or_null("/root/WindowMode")
 	if window_mode != null and window_mode.handle_shortcut(event):
 		get_viewport().set_input_as_handled()
+		return
+	if is_instance_valid(_trade_menu) and _trade_menu.visible:
+		if event is InputEventKey and event.pressed and not event.echo:
+			if event.keycode in [KEY_ESCAPE, KEY_TAB] or event.physical_keycode == KEY_E:
+				_trade_menu.close_menu()
+			get_viewport().set_input_as_handled()
 		return
 	if is_instance_valid(_storage_menu) and _storage_menu.visible:
 		if event is InputEventKey and event.pressed and not event.echo:
@@ -308,6 +320,8 @@ func _item_name(item_id: StringName) -> String:
 
 func _set_inventory_open(open: bool) -> void:
 	_item_context.close_all()
+	if open and is_instance_valid(_trade_menu) and _trade_menu.visible:
+		_trade_menu.close_menu()
 	if open and is_instance_valid(_storage_menu) and _storage_menu.visible:
 		_storage_menu.close_menu()
 	_inventory_menu.visible = open
@@ -363,6 +377,9 @@ func _on_storage_closed() -> void:
 
 
 func _process(_delta: float) -> void:
+	if is_instance_valid(_trade_menu) and _trade_menu.visible:
+		if vitals.health <= 0.0 or not is_instance_valid(_trade_menu.terminal) or _player.get_node("Interaction").target != _trade_menu.terminal:
+			_trade_menu.close_menu()
 	if is_instance_valid(_storage_menu) and _storage_menu.visible:
 		if vitals.health <= 0.0 or _player.get_node("Interaction").target != _storage_menu.storage:
 			_storage_menu.close_menu()
@@ -395,3 +412,15 @@ func _cycle_tool() -> void:
 
 
 
+
+
+func _open_trade(terminal: Node2D) -> void:
+	_set_inventory_open(false)
+	if _storage_menu.visible:
+		_storage_menu.close_menu()
+	_tool_panel.hide()
+	if is_instance_valid(_construction):
+		_construction.cancel()
+	_trade_menu.open_menu(terminal, inventory)
+	_hotbar_row.hide()
+	_player.set_menu_open(true)
