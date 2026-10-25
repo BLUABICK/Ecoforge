@@ -9,6 +9,7 @@ func _run() -> void:
 	await physics_frame
 	await process_frame
 	var controller = world.construction
+	controller.remote_placement_enabled = true # Fixture setup; default reach is tested separately.
 	controller.set_physics_process(false)
 	controller.set_process(false)
 	var player = world.get_node("Player2d")

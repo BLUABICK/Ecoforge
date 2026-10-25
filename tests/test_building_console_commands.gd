@@ -14,6 +14,7 @@ func run() -> void:
  current_scene = world
  await physics_frame
  var c = world.construction
+ c.remote_placement_enabled = true # Opt in to retained remote blueprint mechanic for fixtures.
  c.set_process(false)
  c.set_physics_process(false)
  var player = world.get_node("Player2d")

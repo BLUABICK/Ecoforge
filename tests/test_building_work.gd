@@ -11,6 +11,7 @@ func run() -> void:
  root.add_child(world)
  await physics_frame
  var c = world.construction
+ c.remote_placement_enabled = true # Opt in to retained remote blueprint mechanic for fixtures.
  c.set_process(false)
  c.set_physics_process(false)
  var player = world.get_node("Player2d")
@@ -56,10 +57,20 @@ func run() -> void:
    await physics_frame
    c.advance_construction(1)
    c.set_tool(tool)
-   c.advance_demolition(0.09, cursor, true)
-   check(not segment.is_queued_for_deletion(), kind + ": tool does not delete before 0.1 seconds")
-   c.advance_demolition(0.02, cursor, true)
-   check(segment.is_queued_for_deletion(), kind + ": either tool deletes after 0.1 seconds")
+   c.advance_demolition(10.0, cursor, true)
+   check(not segment.is_queued_for_deletion() and c._demolition_target == null, kind + ": hammer and screwdriver cannot start demolition")
+   c.demolition_instant = true
+   c.advance_demolition(0.0, cursor, true)
+   check(not segment.is_queued_for_deletion(), kind + ": instant demolition cannot bypass tool restriction")
+   c.demolition_instant = false
+   c.area_selection_enabled = true
+   c.queue_demolition_area(cursor - Vector2(40, 16), cursor + Vector2(40, 16))
+   check(not c._demolition_queue.has(segment), kind + ": retained demolition area never selects connections")
+   c.area_selection_enabled = false
+   c.set_tool(2)
+   check(c.cut_wire_at(cursor), kind + ": cutters still remove the selected portion")
+   for piece in c._free_buildings.duplicate():
+    c.remove_building(piece)
    await physics_frame
  world.queue_free()
  print("Building work failures: ", failures)

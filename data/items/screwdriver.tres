@@ -9,7 +9,7 @@ display_name = "Отвёртка"
 
 stack_limit = 1
 is_tool = true
-description = "Разбирает постройки за 3 секунды. Ctrl + ЛКМ — выделить область для последовательного демонтажа; ПКМ — отменить."
+description = "Разбирает постройки за 3 секунды."
 
 icon = ExtResource("2_icon")
 

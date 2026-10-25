@@ -11,6 +11,9 @@ var _cut_preview_width: float = WIRE_STEP
 const WorkVisual = preload("res://scenes/buildings/building_work_visual.gd")
 const BUILD_SECONDS_PER_CELL := 0.5
 @export var construction_reach: float = 128.0
+# Temporarily disabled features; preserve implementations for later use.
+@export var area_selection_enabled := false
+@export var remote_placement_enabled := false
 var build_speed := 1.0
 var demolition_speed := 1.0
 var build_instant := false
@@ -19,7 +22,6 @@ var build_range_enabled := true
 var demolition_range_enabled := true
 var demolition_reach := 36.0
 var cutter_reach := 128.0
-const CONNECTION_WORK_SECONDS := 0.1
 var _construction_jobs: Array[Node2D] = []
 const SEGMENT_REVEAL_STEP := 0.06
 var _segment_reveals: Array[Dictionary] = []
@@ -172,7 +174,7 @@ func _wire_marker_is_clear() -> bool:
 	if not snap.is_empty():
 		marker = snap.point + snap.source.connection_ends()[1].direction * marker_size.x * 0.5
 	placement_position = marker
-	if not bounds.encloses(Rect2(marker - marker_size * 0.5, marker_size)):
+	if not bounds.encloses(Rect2(marker - marker_size * 0.5, marker_size)) or not _placement_in_reach(Rect2(marker - marker_size * 0.5, marker_size)):
 		return false
 	var shape := RectangleShape2D.new()
 	shape.size = marker_size - Vector2.ONE * 0.2
@@ -285,7 +287,7 @@ func _valid_location() -> bool:
 		if turns % 2 == 1:
 			wire_size = Vector2(wire_size.y, wire_size.x)
 		rect = Rect2(placement_position - wire_size * 0.5, wire_size)
-	if not bounds.encloses(rect):
+	if not bounds.encloses(rect) or not _placement_in_reach(rect):
 		return false
 	for x in size_cells.x:
 		for y in size_cells.y:
@@ -434,6 +436,7 @@ func _can_continue_construction(building: Node2D) -> bool:
 
 
 func advance_construction(delta: float) -> void:
+	queue_redraw()
 	for reveal in _segment_reveals.duplicate():
 		if not is_instance_valid(reveal.building) or reveal.building.is_queued_for_deletion():
 			_segment_reveals.erase(reveal)
@@ -463,14 +466,16 @@ func advance_construction(delta: float) -> void:
 
 
 func _draw() -> void:
+	_draw_construction_queue()
 	if not active and selected_tool in [0, 1, 2]:
 		for building in _demolition_queue:
 			if is_instance_valid(building) and not building.is_queued_for_deletion():
-				draw_rect(_building_world_rect(building), Color(1.0, 0.35, 0.15, 0.2))
-				draw_rect(_building_world_rect(building), Color(1.0, 0.5, 0.25, 0.8), false, 1.0)
+				var rect := _building_world_rect(building).grow(2.0)
+				draw_rect(rect, Color(1.0, 0.2, 0.12, 0.15))
+				_draw_queue_outline(rect, Color(1.0, 0.35, 0.25, 0.95))
 		for task in _cut_tasks:
-			var color := Color(1.0, 0.25, 0.15, 0.5) if is_instance_valid(actor) and _cutter_in_reach(task.point) else Color(1.0, 0.65, 0.15, 0.4)
-			draw_rect(Rect2((task.point / task.size).floor() * task.size, Vector2.ONE * task.size), color)
+			var rect := Rect2((task.point / task.size).floor() * task.size, Vector2.ONE * task.size)
+			draw_rect(rect, Color(1.0, 0.2, 0.12, 0.3))
 		if _cut_dragging:
 			var selection := Rect2(_cut_drag_start, _cut_drag_end - _cut_drag_start).abs()
 			draw_rect(selection, Color(1.0, 0.25, 0.15, 0.12))
@@ -560,7 +565,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		_clear_cut_selection()
 		var cursor: Vector2 = get_canvas_transform().affine_inverse() * event.position
-		if event.ctrl_pressed or Input.is_physical_key_pressed(KEY_CTRL):
+		if area_selection_enabled and (event.ctrl_pressed or Input.is_physical_key_pressed(KEY_CTRL)):
 			_cut_dragging = true
 			_cut_drag_start = cursor
 			_cut_drag_end = cursor
@@ -612,6 +617,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if not area_selection_enabled and (_cut_dragging or not _cut_tasks.is_empty() or not _demolition_queue.is_empty()):
+		_clear_cut_selection()
 	if selected_tool == 2:
 		advance_cut_selection()
 		if _using_tool and Input.is_physical_key_pressed(KEY_X):
@@ -631,6 +638,8 @@ func advance_demolition(delta: float, cursor: Vector2, held: bool) -> void:
 	point.position = cursor
 	var candidate: Node2D
 	for hit in get_world_2d().direct_space_state.intersect_point(point, 32):
+		if hit.collider.get_meta("building_id", &"") in [&"wire", &"pipe"]:
+			continue
 		if _occupied.values().has(hit.collider) or _free_buildings.has(hit.collider):
 			candidate = hit.collider
 			break
@@ -641,7 +650,7 @@ func advance_demolition(delta: float, cursor: Vector2, held: bool) -> void:
 		_reset_demolition()
 		_demolition_target = candidate
 	_demolition_elapsed += maxf(delta, 0.0) * demolition_speed
-	var duration := CONNECTION_WORK_SECONDS if candidate.get_meta("building_id", &"") in [&"wire", &"pipe"] else (0.6 if selected_tool == 0 else 3.0)
+	var duration := 0.6 if selected_tool == 0 else 3.0
 	var visual = _work_visual(candidate)
 	visual.demolition_progress = 1.0 if demolition_instant else minf(1.0, _demolition_elapsed / duration)
 	candidate.modulate.a = 1.0 - visual.demolition_progress * 0.6
@@ -669,6 +678,9 @@ func _within_tool_reach(building: Node2D, cursor: Vector2) -> bool:
 
 func remove_building(building: Node2D) -> void:
 	_construction_jobs.erase(building)
+	for reveal in _segment_reveals.duplicate():
+		if not is_instance_valid(reveal.building) or reveal.building == building:
+			_segment_reveals.erase(reveal)
 	_free_buildings.erase(building)
 	for occupied_cell in _occupied.keys():
 		if _occupied[occupied_cell] == building:
@@ -725,7 +737,7 @@ func _route_is_clear(points: PackedVector2Array, _excluded: Array[RID]) -> bool:
 		query.shape = shape
 		query.transform = Transform2D(delta.angle(), (points[index] + points[index + 1]) * 0.5)
 		var extent: Vector2 = Vector2(absf(delta.x), absf(delta.y)) * 0.5 + Vector2.ONE * definition.preview_size.x * 0.5
-		if not bounds.encloses(Rect2(query.transform.origin - extent, extent * 2)):
+		if not bounds.encloses(Rect2(query.transform.origin - extent, extent * 2)) or not _placement_in_reach(Rect2(query.transform.origin - extent, extent * 2)):
 			return false
 		for hit in get_world_2d().direct_space_state.intersect_shape(query, 256):
 			var collider = hit.collider
@@ -907,6 +919,8 @@ func _clear_cut_selection() -> void:
 
 
 func queue_cut_area(start: Vector2, finish: Vector2) -> void:
+	if not area_selection_enabled:
+		return
 	if active or selected_tool != 2 or not is_instance_valid(actor) or actor.menu_open or actor.vitals.health <= 0.0:
 		return
 	var selection := Rect2(start, finish - start).abs()
@@ -966,6 +980,8 @@ func _cut_target_exists(cursor: Vector2) -> bool:
 
 
 func advance_cut_selection() -> void:
+	if not area_selection_enabled:
+		return
 	if active or selected_tool != 2 or not is_instance_valid(actor) or actor.menu_open or actor.vitals.health <= 0.0:
 		return
 	var operations := 0
@@ -999,6 +1015,8 @@ func _building_world_rect(building: Node2D) -> Rect2:
 
 
 func queue_demolition_area(start: Vector2, finish: Vector2) -> void:
+	if not area_selection_enabled:
+		return
 	if active or selected_tool not in [0, 1] or not is_instance_valid(actor) or actor.menu_open or actor.vitals.health <= 0.0:
 		return
 	var selection := Rect2(start, finish - start).abs()
@@ -1010,6 +1028,8 @@ func queue_demolition_area(start: Vector2, finish: Vector2) -> void:
 	query.transform = Transform2D(0.0, selection.get_center())
 	for hit in get_world_2d().direct_space_state.intersect_shape(query, 4096):
 		var building = hit.collider
+		if building.get_meta("building_id", &"") in [&"wire", &"pipe"]:
+			continue
 		if not building.is_queued_for_deletion() and (_free_buildings.has(building) or _occupied.values().has(building)) and not _demolition_queue.has(building):
 			_demolition_queue.append(building)
 	queue_redraw()
@@ -1028,6 +1048,8 @@ func _demolition_work_point(building: Node2D) -> Vector2:
 
 
 func advance_demolition_queue(delta: float) -> void:
+	if not area_selection_enabled:
+		return
 	if active or selected_tool not in [0, 1] or not is_instance_valid(actor) or actor.menu_open or actor.vitals.health <= 0.0 or _cut_dragging:
 		_reset_demolition()
 		return
@@ -1035,6 +1057,9 @@ func advance_demolition_queue(delta: float) -> void:
 	var nearest := INF
 	for building in _demolition_queue.duplicate():
 		if not is_instance_valid(building) or building.is_queued_for_deletion():
+			_demolition_queue.erase(building)
+			continue
+		if building.get_meta("building_id", &"") in [&"wire", &"pipe"]:
 			_demolition_queue.erase(building)
 			continue
 		var point := _demolition_work_point(building)
@@ -1058,3 +1083,38 @@ func advance_demolition_queue(delta: float) -> void:
 
 func _cutter_in_reach(point: Vector2) -> bool:
 	return not demolition_range_enabled or actor.global_position.distance_to(point) <= cutter_reach
+
+
+func _draw_construction_queue() -> void:
+	var color := Color(0.35, 0.85, 1.0, 0.95)
+	for building in _construction_jobs:
+		if not is_instance_valid(building) or building.is_queued_for_deletion() or _demolition_queue.has(building) or building == _demolition_target:
+			continue
+		var rect := _building_world_rect(building).grow(2.0)
+		_draw_queue_outline(rect, color)
+	for reveal in _segment_reveals:
+		if not is_instance_valid(reveal.building):
+			continue
+		var building: Node2D = reveal.building
+		if not is_instance_valid(building) or building.is_queued_for_deletion() or _demolition_queue.has(building) or building == _demolition_target:
+			continue
+		var points := _segment_world_points(building)
+		# The ghost is drawn by the controller, independently of the hidden segment.
+		for index in points.size() - 1:
+			draw_line(points[index], points[index + 1], Color(0.25, 0.8, 1.0, 0.25), building.route_width)
+			draw_dashed_line(points[index], points[index + 1], color, 1.0, 3.0)
+
+
+func _draw_queue_outline(rect: Rect2, color: Color) -> void:
+	var corners := PackedVector2Array([rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y), rect.position])
+	for index in 4:
+		draw_dashed_line(corners[index], corners[index + 1], color, 1.5, 4.0)
+
+
+func _placement_in_reach(rect: Rect2) -> bool:
+	if remote_placement_enabled or not build_range_enabled:
+		return true
+	if not is_instance_valid(actor) or actor.menu_open or actor.vitals.health <= 0.0:
+		return false
+	var closest := actor.global_position.clamp(rect.position, rect.end)
+	return actor.global_position.distance_to(closest) <= construction_reach

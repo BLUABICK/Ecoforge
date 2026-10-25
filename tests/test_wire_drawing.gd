@@ -27,6 +27,7 @@ func run() -> void:
 	root.add_child(world)
 	await physics_frame
 	var controller = world.construction
+	controller.remote_placement_enabled = true # Fixture setup; default reach is tested separately.
 	controller.set_process(false)
 	world.get_node("Player2d").position = Vector2(1404, 650)
 	await physics_frame

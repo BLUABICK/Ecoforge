@@ -17,6 +17,7 @@ func run() -> void:
  var world := Node2D.new()
  root.add_child(world)
  var c = load("res://scenes/buildings/construction_controller.gd").new()
+ c.remote_placement_enabled = true # Isolate geometry from placement range.
  world.add_child(c)
  c.set_process(false)
  var player = load("res://scenes/player/player-2d.tscn").instantiate()

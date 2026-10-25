@@ -5,10 +5,10 @@ const SETTINGS := {
  "demolition_speed": {"property": "demolition_speed", "description": "Множитель скорости кувалды и отвёртки.", "type": "number", "min": 0.01, "max": 1000.0},
  "build_instant": {"property": "build_instant", "description": "Строительство без задержки, включая появление сегментов.", "type": "bool"},
  "demolition_instant": {"property": "demolition_instant", "description": "Кувалда и отвёртка без задержки; действует и на очередь.", "type": "bool"},
- "build_range": {"property": "construction_reach", "description": "Радиус достройки от края объекта, в пикселях. Чертёж можно ставить издалека.", "type": "number", "min": 1.0, "max": 100000.0},
+ "build_range": {"property": "construction_reach", "description": "Радиус постановки и достройки, в пикселях. Достаточно попадания части постройки в радиус.", "type": "number", "min": 1.0, "max": 100000.0},
  "demolition_range": {"property": "demolition_reach", "description": "Радиус кувалды и отвёртки от края объекта, в пикселях.", "type": "number", "min": 1.0, "max": 100000.0},
  "cutter_range": {"property": "cutter_reach", "description": "Радиус кусачек, в пикселях.", "type": "number", "min": 1.0, "max": 100000.0},
- "build_range_enabled": {"property": "build_range_enabled", "description": "Ограничивать дальность достройки; false — без ограничения расстояния.", "type": "bool"},
+ "build_range_enabled": {"property": "build_range_enabled", "description": "Ограничивать дальность постановки и достройки; false — без ограничения расстояния.", "type": "bool"},
  "demolition_range_enabled": {"property": "demolition_range_enabled", "description": "Ограничивать дальность всех инструментов, включая кусачки; false — без ограничения расстояния.", "type": "bool"},
 }
 

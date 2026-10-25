@@ -13,6 +13,7 @@ func _run() -> void:
 	await process_frame
 	var menu = world.get_node("HUD/PlayerHUD")._inventory_menu
 	var controller = world.construction
+	controller.remote_placement_enabled = true # Fixture setup; default reach is tested separately.
 	controller.set_process(false)
 	menu._select_tab(2)
 	await process_frame

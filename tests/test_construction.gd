@@ -16,6 +16,7 @@ func _run() -> void:
 	await process_frame
 	var hud := world.get_node("HUD/PlayerHUD")
 	var controller: Node2D = world.construction
+	controller.remote_placement_enabled = true # Fixture setup; default reach is tested separately.
 	var player := world.get_node("Player2d")
 	var menu: Control = hud._inventory_menu
 	_key(KEY_Z)
