@@ -172,7 +172,7 @@ func _wire_marker_is_clear() -> bool:
 	var marker := _cursor_position if free_build_mode else (_cursor_position / WIRE_STEP).floor() * WIRE_STEP + marker_size * 0.5
 	var snap := _start_snap(_cursor_position)
 	if not snap.is_empty():
-		marker = snap.point + snap.source.connection_ends()[1].direction * marker_size.x * 0.5
+		marker = snap.point + snap.direction * marker_size.x * 0.5
 	placement_position = marker
 	if not bounds.encloses(Rect2(marker - marker_size * 0.5, marker_size)) or not _placement_in_reach(Rect2(marker - marker_size * 0.5, marker_size)):
 		return false
@@ -208,7 +208,7 @@ func _update_drawn_wire(cursor: Vector2) -> void:
 		if definition.id == &"pipe":
 			start += Vector2(absf(direction.y), absf(direction.x)) * WIRE_STEP * 0.5
 	_wire_route = PackedVector2Array([start, start + direction * length])
-	if _wire_start_connected and is_instance_valid(_wire_start_source):
+	if _wire_start_connected and is_instance_valid(_wire_start_source) and _wire_start_source.has_method("connection_ends"):
 		var previous_direction: Vector2 = _wire_start_source.connection_ends()[1].direction
 		if absf(previous_direction.dot(direction)) < 0.01:
 			# Finish the previous grid cell before turning into the next row.
@@ -230,7 +230,9 @@ func _start_snap(cursor: Vector2) -> Dictionary:
 			var distance: float = cursor.distance_to(connection.point)
 			if distance < nearest:
 				nearest = distance
-				result = {"point": connection.point, "source": wire}
+				result = {"point": connection.point, "source": wire, "direction": connection.direction}
+	if result.is_empty() and definition.id == &"wire":
+		return _device_snap(cursor)
 	return result
 
 
@@ -289,8 +291,11 @@ func _valid_location() -> bool:
 		rect = Rect2(placement_position - wire_size * 0.5, wire_size)
 	if not bounds.encloses(rect) or not _placement_in_reach(rect):
 		return false
+	var mount := _terminal_mount(rect)
 	for x in size_cells.x:
 		for y in size_cells.y:
+			if mount != null:
+				continue
 			if not definition.free_placement and not free_build_mode and _occupied.has(cell + Vector2i(x, y)):
 				return false
 	var shape := RectangleShape2D.new()
@@ -298,6 +303,8 @@ func _valid_location() -> bool:
 	var query := PhysicsShapeQueryParameters2D.new()
 	query.shape = shape
 	query.transform = Transform2D(0, rect.get_center())
+	if mount != null:
+		query.exclude = [mount.get_rid()]
 	return get_world_2d().direct_space_state.intersect_shape(query, 1).is_empty()
 
 
@@ -323,8 +330,12 @@ func confirm() -> bool:
 	if definition.id in [&"wire", &"pipe"]:
 		if _wire_start_connected and is_instance_valid(_wire_start_source):
 			building.set_meta("connection_source", _wire_start_source.get_instance_id())
+	var mount := _terminal_mount(Rect2(building.position - Vector2(size_cells * CELL_SIZE) * 0.5, Vector2(size_cells * CELL_SIZE)))
+	if mount != null:
+		building.attach_to_container(mount)
+		building.rotation = mount.rotation
 	get_parent().add_child(building)
-	if definition.free_placement or free_build_mode:
+	if mount != null or definition.free_placement or free_build_mode:
 		_free_buildings.append(building)
 	else:
 		for x in size_cells.x:
@@ -425,6 +436,8 @@ func _can_continue_construction(building: Node2D) -> bool:
 		return true
 	var ray := PhysicsRayQueryParameters2D.create(actor.global_position, point)
 	ray.exclude = [actor.get_rid()]
+	if building.has_method("get_interaction_exclusions"):
+		ray.exclude += building.get_interaction_exclusions()
 	if building.get_meta("building_id", &"") in [&"wire", &"pipe"]:
 		var exclusions: Array[RID] = [actor.get_rid()]
 		for segment in _free_buildings:
@@ -677,6 +690,12 @@ func _within_tool_reach(building: Node2D, cursor: Vector2) -> bool:
 
 
 func remove_building(building: Node2D) -> void:
+	if building.has_meta("mounted_terminal"):
+		var terminal = instance_from_id(building.get_meta("mounted_terminal"))
+		if is_instance_valid(terminal) and not terminal.is_queued_for_deletion():
+			remove_building(terminal)
+	if building.has_method("attach_to_container") and is_instance_valid(building.mount_host):
+		building.mount_host.remove_meta("mounted_terminal")
 	_construction_jobs.erase(building)
 	for reveal in _segment_reveals.duplicate():
 		if not is_instance_valid(reveal.building) or reveal.building == building:
@@ -727,6 +746,7 @@ func set_tool(index: int) -> void:
 
 
 func _route_is_clear(points: PackedVector2Array, _excluded: Array[RID]) -> bool:
+	var devices := _wire_device_exclusions(points)
 	for index in points.size() - 1:
 		var delta := points[index + 1] - points[index]
 		if delta.length() < 0.01:
@@ -741,7 +761,7 @@ func _route_is_clear(points: PackedVector2Array, _excluded: Array[RID]) -> bool:
 			return false
 		for hit in get_world_2d().direct_space_state.intersect_shape(query, 256):
 			var collider = hit.collider
-			if collider.is_queued_for_deletion():
+			if collider.is_queued_for_deletion() or devices.has(collider.get_rid()):
 				continue
 			if not _free_buildings.has(collider) or collider.get_meta("building_id", &"") not in [&"wire", &"pipe"]:
 				return false
@@ -1118,3 +1138,75 @@ func _placement_in_reach(rect: Rect2) -> bool:
 		return false
 	var closest := actor.global_position.clamp(rect.position, rect.end)
 	return actor.global_position.distance_to(closest) <= construction_reach
+
+func _terminal_mount(rect: Rect2) -> Node2D:
+	if definition == null or definition.id != &"terminal":
+		return null
+	for host in _occupied.values():
+		if not is_instance_valid(host) or host.is_queued_for_deletion() or host.get_meta("building_id", &"") != &"cargo_container" or host.has_meta("mounted_terminal") or float(host.get_meta("construction_remaining", 0.0)) > 0.0:
+			continue
+		var collision := host.get_node("CollisionShape2D") as CollisionShape2D
+		var corners := [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]
+		var inside := true
+		for point in corners:
+			var local: Vector2 = collision.to_local(point)
+			if absf(local.x) > collision.shape.size.x * 0.5 + 0.01 or absf(local.y) > collision.shape.size.y * 0.5 + 0.01:
+				inside = false
+		if inside:
+			return host
+	return null
+
+func _device_snap(cursor: Vector2) -> Dictionary:
+	var result := {}
+	var nearest := END_SNAP_RADIUS
+	for device in get_tree().get_nodes_in_group("buildings"):
+		if device.is_queued_for_deletion() or device.get_meta("building_id", &"") not in [&"terminal", &"cargo_container"] or float(device.get_meta("construction_remaining", 0.0)) > 0.0:
+			continue
+		var collision := device.get_node_or_null("CollisionShape2D") as CollisionShape2D
+		if collision == null or not collision.shape is RectangleShape2D:
+			continue
+		var half: Vector2 = collision.shape.size * 0.5
+		var local := collision.to_local(cursor)
+		for normal in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+			var point := local.clamp(-half, half)
+			if normal.x != 0:
+				point.x = half.x * normal.x
+				point.y = clampf(roundf(point.y / WIRE_STEP) * WIRE_STEP, -half.y, half.y)
+			else:
+				point.y = half.y * normal.y
+				point.x = clampf(roundf(point.x / WIRE_STEP) * WIRE_STEP, -half.x, half.x)
+			var world := collision.to_global(point)
+			var distance := cursor.distance_to(world)
+			if distance < nearest:
+				nearest = distance
+				result = {"point": world, "source": device, "direction": normal.rotated(collision.global_rotation)}
+	return result
+
+func _wire_device_exclusions(points: PackedVector2Array) -> Array[RID]:
+	var result: Array[RID] = []
+	if definition.id != &"wire" or points.size() < 2:
+		return result
+	for device in get_tree().get_nodes_in_group("buildings"):
+		if device.is_queued_for_deletion() or device.get_meta("building_id", &"") not in [&"terminal", &"cargo_container"]:
+			continue
+		var collision := device.get_node_or_null("CollisionShape2D") as CollisionShape2D
+		if collision == null or not collision.shape is RectangleShape2D:
+			continue
+		var half: Vector2 = collision.shape.size * 0.5
+		for index in [0, points.size() - 1]:
+			var point := collision.to_local(points[index])
+			var neighbor := collision.to_local(points[1] if index == 0 else points[-2])
+			var normal := Vector2.ZERO
+			if absf(absf(point.x) - half.x) < 0.2 and absf(point.y) <= half.y + 0.01:
+				normal = Vector2(signf(point.x), 0)
+			elif absf(absf(point.y) - half.y) < 0.2 and absf(point.x) <= half.x + 0.01:
+				normal = Vector2(0, signf(point.y))
+			if normal == Vector2.ZERO or (neighbor - point).dot(normal) <= 0:
+				continue
+			var enters := false
+			for segment in points.size() - 1:
+				if _segment_cell_interval(points[segment], points[segment + 1], _building_world_rect(device).grow(-0.1)).x >= 0.0:
+					enters = true
+			if not enters:
+				result.append(device.get_rid())
+	return result

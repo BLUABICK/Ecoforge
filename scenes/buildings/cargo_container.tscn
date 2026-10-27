@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scenes/buildings/building_interaction.gd" id="BuildingInteraction"]
+[ext_resource type="Script" path="res://scenes/buildings/cargo_storage.gd" id="BuildingInteraction"]
 
 [sub_resource type="RectangleShape2D" id="Shape"]
 size = Vector2(96, 64)

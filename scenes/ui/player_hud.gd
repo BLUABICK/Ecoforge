@@ -14,6 +14,8 @@ const StorageMenu = preload("res://scenes/ui/storage_menu.gd")
 var _storage_menu: Control
 const TradeMenu = preload("res://scenes/ui/trade_terminal_menu.gd")
 var _trade_menu: Control
+var _terminal_menu: Control
+const TerminalMenu = preload("res://scenes/ui/terminal_menu.gd")
 var tools: RefCounted
 var _inventory_menu: Control
 var _player: Node
@@ -123,6 +125,9 @@ func _ready() -> void:
 	_storage_menu = StorageMenu.new()
 	_storage_menu.closed.connect(_on_storage_closed)
 	add_child(_storage_menu)
+	_terminal_menu = TerminalMenu.new()
+	_terminal_menu.closed.connect(_on_storage_closed)
+	add_child(_terminal_menu)
 	_trade_menu = TradeMenu.new()
 	_trade_menu.closed.connect(_on_storage_closed)
 	add_child(_trade_menu)
@@ -174,7 +179,7 @@ func _layout_bars() -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
-	if _trade_menu.visible or _storage_menu.visible or _inventory_menu.visible or (is_instance_valid(_construction) and _construction.active):
+	if _terminal_menu.visible or _trade_menu.visible or _storage_menu.visible or _inventory_menu.visible or (is_instance_valid(_construction) and _construction.active):
 		return
 	if event.physical_keycode == KEY_Q:
 		_cycle_tool()
@@ -190,6 +195,12 @@ func _input(event: InputEvent) -> void:
 	var window_mode := get_node_or_null("/root/WindowMode")
 	if window_mode != null and window_mode.handle_shortcut(event):
 		get_viewport().set_input_as_handled()
+		return
+	if is_instance_valid(_terminal_menu) and _terminal_menu.visible:
+		if event is InputEventKey and event.pressed and not event.echo:
+			if event.keycode in [KEY_ESCAPE, KEY_TAB] or event.physical_keycode == KEY_E:
+				_terminal_menu.close_menu()
+			get_viewport().set_input_as_handled()
 		return
 	if is_instance_valid(_trade_menu) and _trade_menu.visible:
 		if event is InputEventKey and event.pressed and not event.echo:
@@ -293,6 +304,9 @@ func _refresh_slots() -> void:
 
 
 func _refresh_vitals() -> void:
+	if is_instance_valid(_terminal_menu) and _terminal_menu.visible:
+		if vitals.health <= 0.0 or not is_instance_valid(_terminal_menu.terminal) or _player.get_node("Interaction").target != _terminal_menu.terminal:
+			_terminal_menu.close_menu()
 	if vitals == null:
 		return
 	_health_bar.max_value = vitals.max_health
@@ -311,6 +325,8 @@ func _item_name(item_id: StringName) -> String:
 
 func _set_inventory_open(open: bool) -> void:
 	_item_context.close_all()
+	if open and is_instance_valid(_terminal_menu) and _terminal_menu.visible:
+		_terminal_menu.close_menu()
 	if open and is_instance_valid(_trade_menu) and _trade_menu.visible:
 		_trade_menu.close_menu()
 	if open and is_instance_valid(_storage_menu) and _storage_menu.visible:
@@ -351,6 +367,9 @@ func _on_construction_mode_changed(active: bool) -> void:
 
 
 func _open_storage(storage: Node2D) -> void:
+	if storage.has_method("get_storage_host") and not is_instance_valid(storage.get_storage_host()):
+		_open_terminal(storage)
+		return
 	_set_inventory_open(false)
 	_tool_panel.hide()
 	if is_instance_valid(_construction):
@@ -371,6 +390,13 @@ func _process(_delta: float) -> void:
 		if vitals.health <= 0.0 or not is_instance_valid(_trade_menu.terminal) or _player.get_node("Interaction").target != _trade_menu.terminal:
 			_trade_menu.close_menu()
 	if is_instance_valid(_storage_menu) and _storage_menu.visible:
+		var access = _storage_menu.storage
+		if is_instance_valid(access) and access.has_method("get_storage_host"):
+			var previous_inventory = access.inventory
+			var host = access.get_storage_host()
+			if not is_instance_valid(host) or access.inventory != previous_inventory:
+				_storage_menu.close_menu()
+				return
 		if vitals.health <= 0.0 or _player.get_node("Interaction").target != _storage_menu.storage:
 			_storage_menu.close_menu()
 
@@ -412,5 +438,18 @@ func _open_trade(terminal: Node2D) -> void:
 	if is_instance_valid(_construction):
 		_construction.cancel()
 	_trade_menu.open_menu(terminal, inventory)
+	_hotbar_row.hide()
+	_player.set_menu_open(true)
+
+func _open_terminal(terminal: Node2D) -> void:
+	_set_inventory_open(false)
+	if _storage_menu.visible:
+		_storage_menu.close_menu()
+	if _trade_menu.visible:
+		_trade_menu.close_menu()
+	_tool_panel.hide()
+	if is_instance_valid(_construction):
+		_construction.cancel()
+	_terminal_menu.open_menu(terminal)
 	_hotbar_row.hide()
 	_player.set_menu_open(true)

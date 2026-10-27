@@ -58,6 +58,10 @@ func refresh_target() -> void:
 	query.exclude = [actor.get_rid()]
 	for overlap in actor.get_world_2d().direct_space_state.intersect_shape(query, 256):
 		var candidate := overlap.collider as Node2D
+		if candidate.has_meta("mounted_terminal"):
+			var mounted = instance_from_id(candidate.get_meta("mounted_terminal"))
+			if is_instance_valid(mounted) and not mounted.is_queued_for_deletion():
+				candidate = mounted
 		if not candidate.is_in_group("interactables"):
 			continue
 		if candidate.has_method("can_interact_from") and not candidate.can_interact_from(actor.global_position):
@@ -67,6 +71,8 @@ func refresh_target() -> void:
 			continue
 		var ray := PhysicsRayQueryParameters2D.create(actor.global_position, candidate.global_position)
 		ray.exclude = [actor.get_rid()]
+		if candidate.has_method("get_interaction_exclusions"):
+			ray.exclude += candidate.get_interaction_exclusions()
 		var hit := actor.get_world_2d().direct_space_state.intersect_ray(ray)
 		if not hit.is_empty() and hit.collider != candidate:
 			continue
